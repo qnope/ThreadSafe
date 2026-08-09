@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <meta>
 #include <type_traits>
 
@@ -28,8 +29,30 @@ constexpr bool is_sendable<T&&> = is_synchronizable<std::remove_cv_t<T>>;
 template <class T>
 constexpr bool is_sendable<T*> = is_synchronizable<std::remove_cv_t<T>>;
 
+// An array is owned storage, not a borrow: sending the object sends every
+// element, so the element rule applies. Without this, the default below would
+// reach its class/union assertion for any type holding a C array — which is
+// std::array, std::mutex, std::function, std::any, and every struct with a
+// fixed-size buffer.
+template <class T, std::size_t N>
+constexpr bool is_sendable<T[N]> = is_sendable<std::remove_cv_t<T>>;
+template <class T>
+constexpr bool is_sendable<T[]> = is_sendable<std::remove_cv_t<T>>;
+
 template <class T>
 concept sendable = is_sendable<T>;
+
+namespace detail {
+
+// The traits describe the static type. Through a pointer to a polymorphic,
+// non-final base the dynamic type is invisible, so a sendable base says
+// nothing about the object actually owned. There is no equivalent of Rust's
+// `Box<dyn Trait + Send>` to carry the promise along with the erased type.
+template <class T>
+constexpr bool dynamic_type_is_known =
+    !std::is_polymorphic_v<T> || std::is_final_v<T>;
+
+}  // namespace detail
 
 namespace detail {
 
@@ -106,8 +129,16 @@ consteval bool default_is_sendable() {
     } else {
         static_assert(std::is_class_v<T> || std::is_union_v<T>,
                       "is_sendable<T> supports only scalar, class and union types");
+        // Deliberately a hard error rather than a conservative false: whether
+        // a type is complete depends on the point of instantiation, so
+        // answering from completeness would make is_sendable<T> differ between
+        // translation units — the very hazard the bottom includes below exist
+        // to prevent. A pimpl'd type must state its own answer:
+        //     template <> constexpr bool threadsafe::is_sendable<Widget> = ...;
         static_assert(requires { sizeof(T); },
-                      "is_sendable<T> requires a complete type");
+                      "is_sendable<T> requires a complete type — specialize "
+                      "is_sendable for types holding a pointer to an "
+                      "incomplete type (the pimpl idiom)");
         return has_no_user_provided_copy_move(^^T)
             && all_bases_and_members_sendable<T>();
     }
@@ -116,3 +147,15 @@ consteval bool default_is_sendable() {
 }  // namespace detail
 
 }  // namespace threadsafe
+
+// A variable template is a customization point whose value is fixed at the
+// point of instantiation, so a translation unit that saw only *some* of the
+// specializations computes a DIFFERENT answer for the same type — silently,
+// and without any diagnostic at link time. Pulling the full set in here makes
+// every entry point into the library agree. The nested includes are no-ops
+// while this header is still in flight (#pragma once), and nothing is
+// instantiated during header processing, so the cycle is benign.
+#include <threadsafe/containers.h>
+#include <threadsafe/smart_pointers.h>
+#include <threadsafe/synchronizable.h>
+#include <threadsafe/vocabulary.h>
