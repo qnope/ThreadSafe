@@ -3,10 +3,22 @@
 #include <threadsafe/synchronizable.h>
 
 #include <cstddef>
+#include <functional>
 
 namespace {
 
 struct SyncType {};
+
+struct EmptyCallable {
+    void operator()() const {}
+};
+
+struct EmptyTag {};
+
+struct StatefulCallable {
+    int state = 0;
+    void operator()() { ++state; }
+};
 
 struct PlainAggregate {
     int a;
@@ -132,3 +144,39 @@ static_assert(!is_sendable<Node>,
 
 static_assert(is_sendable<OptIn>,
               "is_sendable — explicit specialization beats the computed default");
+
+// Callables. There is no separate is_safe_callable: handing a callable to
+// another thread is sending it, so these are the same rules as above applied to
+// class types that happen to have an operator().
+static_assert(is_sendable<void()>,
+              "is_sendable — function types are synchronizable, hence sendable");
+static_assert(is_sendable<void (*const)()>,
+              "is_sendable — a cv-qualified function pointer forwards to T*, "
+              "which forwards to is_synchronizable on the function type");
+static_assert(is_sendable<void (EmptyCallable::*)()>,
+              "is_sendable — a member function pointer is a scalar; the trait "
+              "states safety, not invocability");
+
+static_assert(is_sendable<decltype([] {})>,
+              "is_sendable — a captureless lambda is empty: nothing to inspect "
+              "and nothing to race on");
+static_assert(is_sendable<decltype([](auto) {})>,
+              "is_sendable — a captureless generic lambda has no state either");
+static_assert(is_sendable<decltype([]() mutable {})>,
+              "is_sendable — mutable changes nothing when there is no state to "
+              "mutate");
+static_assert(!is_sendable<decltype([x = 42] {})>,
+              "is_sendable — a capturing closure reflects no members, so its "
+              "captures are state the recursion cannot inspect");
+static_assert(!is_sendable<decltype([p = static_cast<int*>(nullptr)] {})>,
+              "is_sendable — least of all a capture that borrows");
+
+static_assert(is_sendable<EmptyCallable>,
+              "is_sendable — an empty class has no per-object state");
+static_assert(is_sendable<EmptyTag>,
+              "is_sendable — emptiness is what matters, not invocability");
+static_assert(is_sendable<StatefulCallable>,
+              "is_sendable — declared per-object state is fine when the callable "
+              "is handed over rather than shared");
+static_assert(!is_sendable<std::function<void()>>,
+              "is_sendable — std::function has a user-provided copy");

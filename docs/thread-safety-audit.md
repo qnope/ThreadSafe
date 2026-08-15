@@ -98,7 +98,7 @@ type or a non-polymorphic one is unaffected. A hierarchy that genuinely is senda
 with an explicit `is_sendable` specialization on the base — which is then an auditable,
 deliberate assertion rather than an accident.
 
-The same erasure exists for `std::shared_ptr` in two forms that are **OPEN** (see §7): the
+The same erasure exists for `std::shared_ptr` in two forms that are **OPEN** (see §9): the
 type-erased deleter, and `is_synchronizable<Base>` necessarily covering every derived type.
 
 ---
@@ -154,7 +154,10 @@ static_assert(!is_sendable<EmptyUserCopy>);       // user-provided copy ⇒ not 
 
 The library rejected this type as an *argument* and accepted it as the *callable*.
 
-**Fix.** `sendable<std::decay_t<F>>` added to both `launch_task` and `launch_scoped_task`.
+**Fix.** Initially `sendable<std::decay_t<F>>` on both entry points. Then `is_safe_callable` was
+rebased on `is_sendable`, keeping an empty-class escape hatch guarded by the same
+user-provided-copy check — which fixed `EmptyUserCopy` but not the general case, see §8.
+**Final: the trait is gone** and both entry points require `sendable<std::decay_t<F>>` again.
 
 ---
 
@@ -184,7 +187,7 @@ Not soundness bugs on their own, but each one ended the same way: the user write
 | `std::pair`, `std::tuple`, `std::optional`, `std::deque`, `std::list` reported **not sendable** | libstdc++ declares constrained-but-semantically-defaulted special members (`pair& operator=(const pair&) requires ...`), which `std::meta::is_defaulted` reports as user-provided; node-based containers expose internal raw pointers | explicit rules in the new `vocabulary.h` and in `containers.h` |
 | `std::complex<double>` **hard-errored** | its value lives in `__complex__ T`, a compiler extension type that is neither scalar, class nor union | explicit rule in `vocabulary.h` |
 | a plain function could not be launched | `is_lifetime_aware<T*> = false` also matched function pointers | `is_lifetime_aware<F*> = true` for function types — code has static storage duration |
-| `is_safe_callable<void (*const)()>` was `false` | the `F*` partial specialization does not match a top-level-`const` pointer | `is_safe_callable` forwards cv-qualified queries, mirroring `is_sendable` |
+| `is_safe_callable<void (*const)()>` was `false` | the `F*` partial specialization does not match a top-level-`const` pointer | the trait was retired (§8); `is_sendable` already forwards cv-qualified queries |
 
 **Deliberately still a hard error:** `is_sendable` on an incomplete type, which breaks the pimpl
 idiom (`struct Widget { std::unique_ptr<Impl> p; };`). Answering `false` from incompleteness
@@ -194,7 +197,66 @@ pimpl'd type.
 
 ---
 
-## 7. Remaining holes — OPEN
+## 7. Reflection sees no members on a closure type — FIXED
+
+**Severity: high.** GCC 16 reports zero bases and zero non-static data members for a lambda's
+closure type, whatever it captures. `all_bases_and_members_sendable` therefore iterated over
+nothing and returned true, and `is_lifetime_aware` did the same:
+
+```cpp
+std::string local;
+auto f = [&local] { local += "x"; };
+static_assert(is_sendable<decltype(f)>);        // held, over a dangling reference
+static_assert(is_lifetime_aware<decltype(f)>);  // held too
+```
+
+Only the launcher was shielded, and only by accident: the old `is_safe_callable` asked for
+`is_synchronizable || empty`, and a capturing closure is neither. Rebasing the trait on
+`is_sendable` (§4) would have handed that blindness straight to `launch_task`.
+
+**Fix.** `detail::has_unreflectable_state<T>()` in `utils.h`: a class that occupies storage
+(`!is_empty_v`) while reflecting no bases and no members is hiding state, so `is_sendable` and
+`is_lifetime_aware` both answer false. Polymorphic classes are excluded — their unaccounted size
+is the vptr, and `PolyBase { virtual ~PolyBase() = default; }` would otherwise stop being
+sendable. The rule is conservative in the right direction: it costs captureful lambdas, which
+were already rejected, and buys back nothing that reflection can actually inspect.
+
+---
+
+## 8. The empty-callable escape hatch was inherited — FIXED by deleting the trait
+
+**Severity: high.** §4 left `is_safe_callable<F>` = `is_sendable<F> || (class && is_empty_v<F> &&
+no user-provided copy/move)`. The guard on that second disjunct inspected `F` itself. Emptiness,
+however, is inherited — and so is a base's user-provided copy constructor:
+
+```cpp
+struct EmptyUserCopy { EmptyUserCopy(const EmptyUserCopy&) {} void operator()() const {} };
+struct Derived : EmptyUserCopy {};              // still empty; its own members are defaulted
+
+static_assert(!is_sendable<Derived>);           // correct: the recursion sees the base
+static_assert(is_safe_callable<Derived>);       // laundered
+launcher.launch_scoped_task(Derived{});         // accepted — §4 reopened, one level down
+```
+
+`is_sendable` recurses through bases and gets this right; the escape hatch existed only to skip
+that recursion.
+
+**Fix.** The disjunct bought nothing: an empty class is sendable exactly when no class in its base
+chain has a user-provided copy/move, which is the answer the trait should have given. So
+`is_safe_callable` is **removed**, along with its redundant `F*` specialization for function types
+(`is_sendable<T*>` = `is_synchronizable<T>` already covers function pointers). The launcher
+requires `sendable<std::decay_t<F>>`. Every assertion in the old `test_safe_callable.cpp` holds
+verbatim under `is_sendable` and now lives in `test_sendable.cpp`; the `Derived` case above is a
+regression test.
+
+The lesson generalizes: a second trait definitionally equal to `is_sendable` on everything that
+matters reads as a fourth axis next to sync/send/lifetime, so it attracts "improvements" that only
+one of the two traits then gets. Keeping the axes minimal is a soundness property, not a style
+preference.
+
+---
+
+## 9. Remaining holes — OPEN
 
 These cannot be expressed as type-level traits. They are the honest limits of the design.
 
@@ -207,9 +269,9 @@ struct Counter { static int hits; void operator()() const { for (int i=0;i<10000
 // launch two of them → hits = 100000 (expected 200000), reproducibly
 ```
 
-Emptiness means *no per-object state*. It is not a safety proof, and `safe_callable.h` now says
-so. The same applies to an empty allocator backed by a `thread_local` arena, which
-`containers.h` blesses.
+Emptiness means *no per-object state*. It is not a safety proof, and `CLAUDE.md` says so where the
+callable rules are described. The same applies to an empty allocator backed by a `thread_local`
+arena, which `containers.h` blesses.
 
 **`shared_ptr` ownership is assumed, not proven.** `is_lifetime_aware<shared_ptr<T>> = true`,
 but the aliasing constructor (`shared_ptr(other, ptr)`) and a no-op deleter both produce
@@ -219,7 +281,7 @@ but the aliasing constructor (`shared_ptr(other, ptr)`) and a no-op deleter both
 drops the last reference. A deleter capturing a borrow into the sender's scope is invisible.
 
 **`is_synchronizable` is an unsafe escape hatch.** One line blesses `T&`, `T*`, `shared_ptr<T>`,
-`weak_ptr<T>`, `reference_wrapper<T>` and `safe_callable<T>` at once, and for a polymorphic base
+`weak_ptr<T>` and `reference_wrapper<T>` at once, and for a polymorphic base
 it covers every derived type reached through it. Nothing distinguishes a correct assertion from a
 false one. Mitigation: `THREADSAFE_UNSAFE_ASSERT_SYNCHRONIZABLE(T)` makes every such promise
 greppable — the Rust `unsafe impl` marker this design otherwise lacks.
@@ -242,12 +304,17 @@ synchronous but cannot propagate one to the caller.
 | `containers.h` | lifetime rules for every container; `deque`/`list`/`forward_list` sendability |
 | `vocabulary.h` | **new** — `pair`, `tuple`, `optional`, `variant`, `array`, `complex`, `stop_token`, `stop_source` |
 | `smart_pointers.h` | polymorphic-erasure guard on `unique_ptr`; `unique_ptr` lifetime rule |
-| `safe_callable.h` | cv forwarding; sharpened emptiness documentation |
+| `safe_callable.h` | **deleted** (§8) — `is_sendable` is the whole rule for callables |
+| `utils.h` | **new** — special-member reflection helpers; `has_unreflectable_state` (§7) |
 | `synchronizable_base.h` | `THREADSAFE_UNSAFE_ASSERT_SYNCHRONIZABLE` |
-| `asynchronous_task_launcher.h` | `sendable<F>` on both entry points; stop_token assertion |
+| `asynchronous_task_launcher.h` | `F` must be `sendable` (§4, §8); stop_token assertion |
+| `sendable.h`, `lifetime_aware.h` | `has_unreflectable_state` guard (§7) |
 | `tests/test_soundness_regressions.cpp` | **new** — one block per hole above |
 | `tests/test_include_isolation.cpp` | **new** — pins the §3 fix |
+| `tests/test_safe_callable.cpp` | **deleted** (§8) — its assertions moved verbatim into `test_sendable.cpp` |
+| `threadsafe.h`, `tests/CMakeLists.txt` | drop the deleted header and TU |
 
-All 9 test translation units compile clean, and the multi-TU link case now agrees. No existing
-test was modified or deleted; the only pre-existing assertion that changed meaning is that a
-plain function pointer is now launchable, which was §6.
+All 8 test translation units compile clean, and the multi-TU link case now agrees. Two
+pre-existing assertions changed meaning: a plain function pointer is now launchable (§6), and
+an empty class deriving from one with a user-provided copy is no longer accepted as a callable
+(§8).

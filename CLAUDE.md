@@ -34,19 +34,22 @@ True if a `T` may be sent from one thread to another.
   1. If `is_synchronizable<T>` is true, `is_sendable<T>` is true. **Deliberate deviation from Rust** (where `Sync` does not imply `Send`) — do not "fix" this.
   2. Otherwise `T` is sendable if it has no user-provided copy/move constructor or assignment operator — defaulted or deleted members, implicit or explicit, are fine; detected via C++26 reflection — and all of its base classes and non-static data members are sendable.
   3. Arrays follow their element type: `is_sendable<T[N]>` = `is_sendable<T>`. Owned storage, not a borrow — and without this rule any type holding a C array is a hard error, not an answer.
+  4. A non-empty class that reflects no bases and no members has state the recursion cannot inspect → false (`has_unreflectable_state`, `utils.h`). This is what a **closure type** looks like: GCC reports zero members for a lambda whatever it captures, so without this rule `[&local]{…}` recurses over nothing and answers true. Polymorphic classes are excluded — their unaccounted size is the vptr. `is_lifetime_aware` applies the same rule for the same reason.
 - Std specializations (`smart_pointers.h`):
   - `std::unique_ptr<T, D>` = `is_sendable<T> && is_sendable<D>`, **and** the pointee's dynamic type must be knowable (`!is_polymorphic || is_final`). Through a non-final polymorphic base the owned object's real type is invisible, so a sendable base would otherwise smuggle a non-sendable derived object across. The deleter travels with the pointer; array forms follow the element type.
   - `std::shared_ptr<T>`, `std::weak_ptr<T>` = `is_synchronizable<T>` (sending shares the referent; Sync ⇒ Send makes that sufficient).
   - `std::reference_wrapper<T>` = `is_synchronizable<T>` (same rule as `T&`).
 
-### `is_safe_callable<F>`
+### Callables — there is no separate trait
 
-True if a `F` may be invoked from multiple threads at the same time while shared between them.
+Handing a callable to another thread *is* sending it, so `is_sendable` is the whole rule. Function types are synchronizable hence sendable; function pointers follow the sendable pointer rule; an empty functor or captureless lambda is sendable because the base/member recursion is vacuous; a capturing closure is caught by rule 4 above.
 
-- `is_synchronizable<F>` implies `is_safe_callable<F>` (covers function types).
-- Function pointers are safe callables (code is immutable).
-- Empty class types are safe callables — no per-object state to race on, even through a `mutable` `operator()`. This states *safety*, not invocability: any empty class qualifies (compose with `std::invocable` at the use site). Note that emptiness is **not** statelessness: static data members do not count toward `std::is_empty_v`, so an empty functor may still race on state the trait cannot see.
-- Member function pointers: false (out of scope for now).
+There was an `is_safe_callable<F>` = `is_sendable<F> || (empty class with no user-provided copy/move)`. **Do not reintroduce it.** The disjunct admitted nothing that `is_sendable` rejects for a good reason, and it was unsound: emptiness is inherited but that copy/move guard checked only `F` itself, so `struct D : EmptyUserCopy {}` was empty, had defaulted members of its own, and rode past the launcher — running a user-provided copy constructor on the destination thread. `tests/test_soundness_regressions.cpp` pins the case.
+
+Two properties survive the removal and still matter at the use site:
+
+- The trait states *safety*, not invocability: any sendable type qualifies, member function pointers included (they are scalars). Compose with `std::invocable`.
+- Emptiness is **not** statelessness: static data members do not count toward `std::is_empty_v`, so an empty functor may still race on state no trait here can see.
 
 ### `is_lifetime_aware<T>`
 

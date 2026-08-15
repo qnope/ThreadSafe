@@ -7,6 +7,8 @@
 #include <ranges>
 #include <type_traits>
 
+#include <threadsafe/utils.h>
+
 namespace threadsafe {
 
 namespace detail {
@@ -74,9 +76,10 @@ consteval bool default_is_lifetime_aware() {
     } else if constexpr (std::ranges::borrowed_range<T>) {
         return false;
     } else if constexpr (std::is_class_v<T> || std::is_union_v<T>) {
-        static_assert(requires { sizeof(T); },
+        static_assert(std::meta::is_complete_type(^^T),
                       "is_lifetime_aware<T> requires a complete type");
-        return all_bases_and_members_lifetime_aware<T>();
+        return !has_unreflectable_state(^^T)
+            && all_bases_and_members_lifetime_aware<T>();
     } else {
         return true;
     }

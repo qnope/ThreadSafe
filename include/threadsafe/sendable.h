@@ -5,6 +5,7 @@
 #include <type_traits>
 
 #include <threadsafe/synchronizable_base.h>
+#include <threadsafe/utils.h>
 
 namespace threadsafe {
 
@@ -42,25 +43,6 @@ constexpr bool dynamic_type_is_known =
 
 namespace detail {
 
-consteval bool is_copy_move_constructor_assignment(std::meta::info m) {
-    return std::meta::is_copy_constructor(m)
-        || std::meta::is_move_constructor(m)
-        || std::meta::is_copy_assignment(m)
-        || std::meta::is_move_assignment(m);
-}
-
-consteval bool has_no_user_provided_copy_move(std::meta::info type) {
-    auto const ctx = std::meta::access_context::unchecked();
-    for (std::meta::info m : std::meta::members_of(type, ctx)) {
-        if (!is_copy_move_constructor_assignment(m))
-            continue;
-
-        if (!std::meta::is_defaulted(m) && !std::meta::is_deleted(m))
-            return false;
-    }
-    return true;
-}
-
 template <class T>
 consteval bool all_bases_and_members_sendable() {
     constexpr auto ctx = std::meta::access_context::unchecked();
@@ -97,11 +79,12 @@ consteval bool default_is_sendable() {
     } else {
         static_assert(std::is_class_v<T> || std::is_union_v<T>,
                       "is_sendable<T> supports only scalar, class and union types");
-        static_assert(requires { sizeof(T); },
+        static_assert(std::meta::is_complete_type(^^T),
                       "is_sendable<T> requires a complete type — specialize "
                       "is_sendable for types holding a pointer to an "
                       "incomplete type (the pimpl idiom)");
-        return has_no_user_provided_copy_move(^^T)
+        return has_only_default_copy_move_constructor_assignment(^^T)
+            && !has_unreflectable_state(^^T)
             && all_bases_and_members_sendable<T>();
     }
 }

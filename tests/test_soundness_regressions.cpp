@@ -15,6 +15,7 @@
 #include <string>
 #include <string_view>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -46,6 +47,7 @@ struct EmptyUserCopy {
     EmptyUserCopy(const EmptyUserCopy&) {}
     void operator()() const {}
 };
+struct DerivesFromEmptyUserCopy : EmptyUserCopy {};
 
 struct PolyBase {
     virtual ~PolyBase() = default;
@@ -59,6 +61,11 @@ struct WithCArray {
 
 void free_function() {}
 
+[[maybe_unused]] auto borrow(std::string& s) {
+    return [&s] { s += "x"; };
+}
+using CapturesReference = decltype(borrow(std::declval<std::string&>()));
+
 template <class F, class... Args>
 constexpr bool can_launch_task =
     requires(threadsafe::asynchronous_task_launcher l, F f, Args... args) {
@@ -70,7 +77,6 @@ constexpr bool can_launch_task =
 THREADSAFE_UNSAFE_ASSERT_SYNCHRONIZABLE(SyncType);
 
 using threadsafe::is_lifetime_aware;
-using threadsafe::is_safe_callable;
 using threadsafe::is_sendable;
 
 static_assert(!is_lifetime_aware<HoldsPointer>,
@@ -128,11 +134,27 @@ static_assert(is_sendable<std::array<int, 4>>);
 static_assert(is_sendable<std::mutex>,
               "a mutex may be moved to another thread");
 
-static_assert(is_safe_callable<EmptyUserCopy>, "empty, so safe to share");
-static_assert(!is_sendable<EmptyUserCopy>, "but a user-provided copy blocks it");
+static_assert(!is_sendable<EmptyUserCopy>,
+              "empty is not enough: the copy launch_task makes onto the thread "
+              "runs a user-provided constructor there");
 static_assert(!can_launch_task<EmptyUserCopy>,
               "launch_task copies the callable onto the thread and destroys it "
               "there, so F must be sendable");
+
+// The retired is_safe_callable admitted any empty class whose own copy/move
+// members were defaulted. Emptiness is inherited but that guard was not, so a
+// derived class laundered the base's user-provided copy past the launcher.
+// is_sendable recurses through bases, which is why the trait is gone.
+static_assert(std::is_empty_v<DerivesFromEmptyUserCopy>);
+static_assert(!is_sendable<DerivesFromEmptyUserCopy>,
+              "an empty class inherits its base's user-provided copy");
+static_assert(!can_launch_task<DerivesFromEmptyUserCopy>);
+
+static_assert(!is_sendable<CapturesReference>,
+              "a closure reflects no members whatever it captures, so its "
+              "state is state the traits cannot inspect");
+static_assert(!can_launch_task<CapturesReference>,
+              "a callable borrowing a local must not outlive the launcher");
 
 static_assert(is_sendable<std::stop_token> && is_lifetime_aware<std::stop_token>,
               "the injected argument must satisfy the traits on its own");
@@ -143,8 +165,8 @@ static_assert(is_lifetime_aware<void (*)()>,
 static_assert(can_launch_task<decltype(&free_function)>,
               "a plain function must be launchable");
 
-static_assert(is_safe_callable<void (*const)()>,
-              "a cv-qualified function pointer is still a safe callable");
+static_assert(is_sendable<void (*const)()>,
+              "a cv-qualified function pointer is still sendable");
 static_assert(!is_lifetime_aware<int* const>);
 static_assert(is_lifetime_aware<const std::string>);
 

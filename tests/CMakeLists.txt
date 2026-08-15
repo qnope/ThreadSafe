@@ -2,7 +2,6 @@
 # OBJECT library so no main() is needed and the TUs are part of ALL.
 add_library(threadsafe_tests OBJECT
     test_synchronizable.cpp
-    test_safe_callable.cpp
     test_sendable.cpp
     test_containers.cpp
     test_smart_pointers.cpp
