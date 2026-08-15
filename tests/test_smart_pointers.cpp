@@ -14,14 +14,13 @@ struct BadDeleter {
     BadDeleter(const BadDeleter&);
     void operator()(int*) const;
 };
-}  // namespace
+}
 
 template <>
 constexpr bool threadsafe::is_synchronizable<SyncType> = true;
 
 using threadsafe::is_sendable;
 
-// --- unique_ptr: pointee and deleter must both be sendable ---
 static_assert(is_sendable<std::unique_ptr<int>>,
               "is_sendable — the default deleter is stateless, so only the pointee matters");
 static_assert(is_sendable<std::unique_ptr<std::unique_ptr<int>>>,
@@ -37,7 +36,6 @@ static_assert(!is_sendable<std::unique_ptr<int*>>,
 static_assert(!is_sendable<std::unique_ptr<int, BadDeleter>>,
               "is_sendable — the deleter travels with the pointer, so it must be sendable");
 
-// --- shared_ptr / weak_ptr: sending shares the referent ---
 static_assert(!is_sendable<std::shared_ptr<int>>,
               "is_sendable — sending a shared_ptr shares a non-synchronizable referent");
 static_assert(!is_sendable<std::shared_ptr<void>>,
@@ -53,7 +51,6 @@ static_assert(is_sendable<std::shared_ptr<SyncType[]>>,
 static_assert(is_sendable<std::weak_ptr<SyncType>>,
               "is_sendable — locking a sent weak_ptr yields shared access, which is safe here");
 
-// --- reference_wrapper: same rule as T& ---
 static_assert(!is_sendable<std::reference_wrapper<int>>,
               "is_sendable — a reference_wrapper shares its referent like T&");
 static_assert(is_sendable<std::reference_wrapper<SyncType>>,
@@ -61,13 +58,11 @@ static_assert(is_sendable<std::reference_wrapper<SyncType>>,
 static_assert(is_sendable<std::reference_wrapper<const SyncType>>,
               "is_sendable — cv on the referent is stripped, like the T& rule");
 
-// --- cv and references ---
 static_assert(is_sendable<const std::shared_ptr<SyncType>>,
               "is_sendable — cv on the wrapper forwards to the specialization");
 static_assert(!is_sendable<std::shared_ptr<SyncType>&>,
               "is_sendable — the T& rule wins: the shared_ptr object itself is not synchronizable");
 
-// --- interactions ---
 static_assert(is_sendable<std::atomic<std::shared_ptr<SyncType>>>,
               "is_sendable — an atomic follows the sendability of its value type");
 static_assert(threadsafe::is_synchronizable<std::atomic<std::shared_ptr<SyncType>>>,

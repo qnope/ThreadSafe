@@ -11,11 +11,10 @@ namespace {
 struct Own {
     int v;
 };
-}  // namespace
+}
 
 using threadsafe::is_lifetime_aware;
 
-// --- by value: true ---
 static_assert(is_lifetime_aware<int>,
               "is_lifetime_aware — a value owns its data");
 static_assert(is_lifetime_aware<std::string>,
@@ -25,7 +24,6 @@ static_assert(is_lifetime_aware<std::vector<int>>,
 static_assert(is_lifetime_aware<Own>,
               "is_lifetime_aware — a user struct owns its data");
 
-// --- by value, except borrowed ranges: false ---
 static_assert(!is_lifetime_aware<std::span<int>>,
               "is_lifetime_aware — borrowed ranges do not own their data");
 static_assert(!is_lifetime_aware<std::string_view>,
@@ -33,7 +31,6 @@ static_assert(!is_lifetime_aware<std::string_view>,
 static_assert(!is_lifetime_aware<std::ranges::subrange<int*>>,
               "is_lifetime_aware — borrowed ranges do not own their data");
 
-// --- references and pointers: false ---
 static_assert(!is_lifetime_aware<int&>,
               "is_lifetime_aware — T& does not keep its referent alive");
 static_assert(!is_lifetime_aware<std::string&&>,
@@ -45,13 +42,11 @@ static_assert(!is_lifetime_aware<const int*>,
 static_assert(!is_lifetime_aware<std::reference_wrapper<int>>,
               "is_lifetime_aware — reference_wrapper does not keep its referent alive");
 
-// --- smart pointers: true ---
 static_assert(is_lifetime_aware<std::shared_ptr<int>>,
               "is_lifetime_aware — shared_ptr keeps its referent alive");
 static_assert(is_lifetime_aware<std::weak_ptr<int>>,
               "is_lifetime_aware — weak_ptr keeps its control block alive");
 
-// --- interactions ---
 static_assert(is_lifetime_aware<std::shared_ptr<std::span<int>>>,
               "is_lifetime_aware — an owner of a borrowed range is still an owner");
 static_assert(!is_lifetime_aware<std::vector<int>&>,

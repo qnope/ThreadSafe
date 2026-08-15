@@ -15,14 +15,13 @@ struct SyncCallable {
     std::atomic<int> counter{0};
     void operator()() const {}
 };
-}  // namespace
+}
 
 template <>
 constexpr bool threadsafe::is_synchronizable<SyncCallable> = true;
 
 using threadsafe::is_safe_callable;
 
-// --- functions: code is immutable, invocable from any thread ---
 static_assert(is_safe_callable<void (*)()>,
               "is_safe_callable — function pointers are safe callables");
 static_assert(is_safe_callable<int (*)(int)>,
@@ -31,7 +30,6 @@ static_assert(is_safe_callable<void()>,
               "is_safe_callable — function types are synchronizable, hence"
               " safe callables");
 
-// --- empty callables: no per-object state to race on ---
 static_assert(is_safe_callable<decltype([] {})>,
               "is_safe_callable — a captureless lambda has no state");
 static_assert(is_safe_callable<decltype([](auto) {})>,
@@ -45,7 +43,6 @@ static_assert(is_safe_callable<EmptyTag>,
               "is_safe_callable — the trait states safety, not invocability:"
               " any empty class qualifies");
 
-// --- stateful callables are not safe to share ---
 static_assert(!is_safe_callable<decltype([x = 42] {})>,
               "is_safe_callable — a capturing lambda carries per-object state");
 static_assert(!is_safe_callable<StatefulCallable>,
@@ -54,12 +51,10 @@ static_assert(!is_safe_callable<StatefulCallable>,
 static_assert(!is_safe_callable<std::function<void()>>,
               "is_safe_callable — std::function owns unsynchronized state");
 
-// --- synchronizable callables opt in ---
 static_assert(is_safe_callable<SyncCallable>,
               "is_safe_callable — a synchronizable callable may already be"
               " shared across threads");
 
-// --- non-callables and out-of-scope pointers ---
 static_assert(!is_safe_callable<int>,
               "is_safe_callable — default is false");
 static_assert(!is_safe_callable<void (EmptyCallable::*)()>,

@@ -9,7 +9,6 @@ struct UserCopyCtor {
     UserCopyCtor(const UserCopyCtor&);
 };
 
-// Stateful policy types holding a non-sendable member.
 struct BadAlloc {
     UserCopyCtor state;
     using value_type = int;
@@ -27,7 +26,6 @@ struct BadCompare {
     bool operator()(int, int) const;
 };
 
-// Move-only, with the copy members explicitly deleted.
 struct MoveOnlyStrings {
     std::vector<std::string> strings;
     MoveOnlyStrings(const MoveOnlyStrings&) = delete;
@@ -36,11 +34,10 @@ struct MoveOnlyStrings {
     MoveOnlyStrings& operator=(MoveOnlyStrings&&) = default;
 };
 
-}  // namespace
+}
 
 using threadsafe::is_sendable;
 
-// --- policy types: default allocator and functors are sendable ---
 static_assert(is_sendable<std::allocator<int>>,
               "is_sendable — std::allocator is stateless, sending it is safe");
 static_assert(is_sendable<std::less<int>>,
@@ -50,7 +47,6 @@ static_assert(is_sendable<std::hash<int>>,
 static_assert(is_sendable<std::equal_to<int>>,
               "is_sendable — stateless equality functors are sendable by default");
 
-// --- containers of sendable elements are sendable ---
 static_assert(is_sendable<std::vector<int>>,
               "is_sendable — a vector of sendable elements is sendable");
 static_assert(is_sendable<std::string>,
@@ -79,7 +75,6 @@ static_assert(is_sendable<MoveOnlyStrings>,
               "is_sendable — a move-only class holding a vector<string> is "
               "sendable: deleted copy members do not block sendability");
 
-// --- non-sendable elements propagate ---
 static_assert(!is_sendable<std::vector<UserCopyCtor>>,
               "is_sendable — a non-sendable element makes the container non-sendable");
 static_assert(!is_sendable<std::vector<int*>>,
@@ -87,7 +82,6 @@ static_assert(!is_sendable<std::vector<int*>>,
 static_assert(!is_sendable<std::map<int, UserCopyCtor>>,
               "is_sendable — a non-sendable mapped type makes the map non-sendable");
 
-// --- non-sendable stored policy objects propagate ---
 static_assert(!is_sendable<std::vector<int, BadAlloc>>,
               "is_sendable — the allocator is stored, so it must be sendable too");
 static_assert(!is_sendable<std::set<int, BadCompare>>,
@@ -97,7 +91,6 @@ static_assert(!is_sendable<std::unordered_set<int, BadHash>>,
 static_assert(!is_sendable<std::unordered_set<int, std::hash<int>, BadCompare>>,
               "is_sendable — the key_equal is stored, so it must be sendable too");
 
-// --- cv and references ---
 static_assert(is_sendable<const std::vector<int>>,
               "is_sendable — cv-qualified T forwards to the container specialization");
 static_assert(!is_sendable<std::vector<int>&>,

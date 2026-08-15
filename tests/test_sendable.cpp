@@ -1,7 +1,5 @@
 #include <threadsafe/sendable.h>
 
-// Function-pointer sendability relies on the "function types are
-// synchronizable" rule, which lives with the other synchronizable rules.
 #include <threadsafe/synchronizable.h>
 
 #include <cstddef>
@@ -65,7 +63,7 @@ struct OptIn {
 
 enum class Color { red, green };
 
-}  // namespace
+}
 
 template <>
 constexpr bool threadsafe::is_synchronizable<SyncType> = true;
@@ -74,7 +72,6 @@ constexpr bool threadsafe::is_sendable<OptIn> = true;
 
 using threadsafe::is_sendable;
 
-// --- references: is_sendable<T&> = is_synchronizable<T> ---
 static_assert(!is_sendable<int&>,
               "is_sendable — sending a reference shares the referent");
 static_assert(is_sendable<SyncType&>,
@@ -82,11 +79,9 @@ static_assert(is_sendable<SyncType&>,
 static_assert(is_sendable<SyncType&&>,
               "is_sendable — an rvalue reference shares the referent too");
 
-// --- rule 1: synchronizable implies sendable (deliberate Rust deviation) ---
 static_assert(is_sendable<SyncType>,
               "is_sendable — is_synchronizable<T> implies is_sendable<T>");
 
-// --- base cases: non-class types ---
 static_assert(is_sendable<int>, "is_sendable — arithmetic types are sendable");
 static_assert(is_sendable<double>, "is_sendable — arithmetic types are sendable");
 static_assert(is_sendable<Color>, "is_sendable — enums are sendable");
@@ -106,7 +101,6 @@ static_assert(is_sendable<const int>,
 static_assert(!is_sendable<const UserCopyCtor>,
               "is_sendable — cv-qualified T forwards to T");
 
-// --- rule 2: no user-provided copy/move special members ---
 static_assert(is_sendable<PlainAggregate>,
               "is_sendable — implicitly-declared special members count as defaulted");
 static_assert(is_sendable<ExplicitlyDefaulted>,
@@ -119,7 +113,6 @@ static_assert(is_sendable<DeletedCopy>,
               "is_sendable — a deleted copy constructor does not block: deleting "
               "an operation cannot introduce sharing");
 
-// --- rule 2: recursion into bases and members ---
 static_assert(!is_sendable<HasBadMember>,
               "is_sendable — a non-sendable member makes the class non-sendable");
 static_assert(!is_sendable<DerivedBad>,
@@ -134,10 +127,8 @@ static_assert(!is_sendable<HoldsRef>,
               "is_sendable — a reference member shares its referent, so it is "
               "not sendable");
 
-// --- termination: self-referential types ---
 static_assert(!is_sendable<Node>,
               "is_sendable — recursion terminates on self-referential types");
 
-// --- customization: explicit specialization beats the computed default ---
 static_assert(is_sendable<OptIn>,
               "is_sendable — explicit specialization beats the computed default");
