@@ -12,12 +12,11 @@
 namespace threadsafe {
 
 namespace detail {
-template <class T>
-consteval bool default_is_lifetime_aware();
+consteval bool default_is_lifetime_aware(std::meta::info type);
 }
 
 template <class T>
-constexpr bool is_lifetime_aware = detail::default_is_lifetime_aware<T>();
+constexpr bool is_lifetime_aware = detail::default_is_lifetime_aware(^^T);
 
 template <class T>
 constexpr bool is_lifetime_aware<T&> = false;
@@ -44,45 +43,45 @@ constexpr bool is_lifetime_aware<std::weak_ptr<T>> = true;
 template <class T>
 concept lifetime_aware = is_lifetime_aware<T>;
 
-namespace detail {
-
-template <class T>
-consteval bool all_bases_and_members_lifetime_aware() {
-    constexpr auto ctx = std::meta::access_context::unchecked();
-
-    template for (constexpr std::meta::info b :
-                  std::define_static_array(std::meta::bases_of(^^T, ctx)))
-    {
-        using B = [:std::meta::type_of(b):];
-        if (!is_lifetime_aware<B>)
-            return false;
-    }
-
-    template for (constexpr std::meta::info m :
-                  std::define_static_array(std::meta::nonstatic_data_members_of(^^T, ctx)))
-    {
-        using M = [:std::meta::type_of(m):];
-        if (!is_lifetime_aware<std::remove_cv_t<M>>)
-            return false;
-    }
-
-    return true;
+// The info-level face of the trait, named after the predicates of <meta>. Same
+// answer as is_lifetime_aware<T>, for code written on the reflection side.
+inline consteval bool is_lifetime_aware_type(std::meta::info type) {
+    return detail::trait_value(^^is_lifetime_aware, type);
 }
 
-template <class T>
-consteval bool default_is_lifetime_aware() {
-    if constexpr (!std::is_same_v<T, std::remove_cv_t<T>>) {
-        return is_lifetime_aware<std::remove_cv_t<T>>;
-    } else if constexpr (std::ranges::borrowed_range<T>) {
+namespace detail {
+
+inline consteval bool default_is_lifetime_aware(std::meta::info type) {
+    const auto ctx = std::meta::access_context::unchecked();
+    const auto unqualified = std::meta::remove_cv(type);
+
+    // A cv-qualified type reaches the primary template even when its
+    // unqualified form has a specialization; forward so both agree.
+    if (unqualified != type)
+        return is_lifetime_aware_type(unqualified);
+
+    if (trait_value(^^std::ranges::borrowed_range, type))
         return false;
-    } else if constexpr (std::is_class_v<T> || std::is_union_v<T>) {
-        static_assert(std::meta::is_complete_type(^^T),
-                      "is_lifetime_aware<T> requires a complete type");
-        return !has_unreflectable_state(^^T)
-            && all_bases_and_members_lifetime_aware<T>();
-    } else {
+
+    if (!std::meta::is_class_type(type) && !std::meta::is_union_type(type))
         return true;
-    }
+
+    if (!std::meta::is_complete_type(type))
+        throw std::meta::exception(
+            u8"is_lifetime_aware<T> requires a complete type", type);
+
+    if (has_unreflectable_state(type))
+        return false;
+
+    for (std::meta::info b : std::meta::bases_of(type, ctx))
+        if (!is_lifetime_aware_type(std::meta::type_of(b)))
+            return false;
+
+    for (std::meta::info m : std::meta::nonstatic_data_members_of(type, ctx))
+        if (!is_lifetime_aware_type(std::meta::remove_cv(std::meta::type_of(m))))
+            return false;
+
+    return true;
 }
 
 }

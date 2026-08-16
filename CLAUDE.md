@@ -68,6 +68,14 @@ Reflection cannot tell an owned pointer from a borrowed one, so **every owning s
 
 ### Header structure
 
-The traits are variable templates, so their value is fixed at the point of instantiation. A TU that saw only *some* specializations would compute a different answer for the same type than one that saw them all — silently, and IFNDR across TUs. Each trait header therefore pulls in the full specialization set at its bottom; `tests/test_include_isolation.cpp` pins this. A full specialization written in a header must be `inline`, or every TU emits its own definition and the link fails.
+The traits are variable templates, so their value is fixed at the point of instantiation. A TU that saw only *some* specializations would compute a different answer for the same type than one that saw them all — silently, and IFNDR across TUs. Each trait header therefore pulls in the full specialization set at its bottom; `tests/test_include_isolation.cpp` pins this. A full specialization written in a header must be `inline`, or every TU emits its own definition and the link fails — and so must a non-template function defined in one, which the `default_is_*` and `is_*_type` functions now are.
+
+### The info-level face of the traits
+
+Each trait also exposes `is_sendable_type(std::meta::info)`, `is_synchronizable_type(...)`, `is_lifetime_aware_type(...)`, named after the predicates of `<meta>`. Same answers as the variable templates, for code written on the reflection side.
+
+They exist because `default_is_sendable` and `default_is_lifetime_aware` take a `std::meta::info` **as a function parameter**, not as a template argument. That parameter is not a constant expression, so nothing in those functions can splice it — no `if constexpr`, no `template for`, no `static_assert`; the bodies are plain loops and `if`s, and the two diagnostics they used to `static_assert` are `throw std::meta::exception` (GCC prints `what()` verbatim, with the instantiation stack).
+
+Reading a trait back for a reflected type therefore goes through `detail::trait_value` in `utils.h` — `std::meta::extract<bool>(std::meta::substitute(^^trait, {type}))`. Going through the variable template is not a detour: the specializations in `containers.h`, `smart_pointers.h` and `vocabulary.h` *are* the answer for their types, and only a template-id sees them. Substitution resolves at evaluation time, so a specialization declared below the `substitute` call — or in the user's own TU, via `THREADSAFE_UNSAFE_ASSERT_SYNCHRONIZABLE` — still counts; `tests/test_include_isolation.cpp` pins that too. The same mechanism reaches concepts: `std::ranges::borrowed_range` is queried this way, since `<meta>` has no `is_borrowed_range_type`.
 
 See `docs/thread-safety-audit.md` for the soundness holes this design has closed and the ones that remain open.

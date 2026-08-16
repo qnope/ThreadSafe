@@ -10,12 +10,11 @@
 namespace threadsafe {
 
 namespace detail {
-template <class T>
-consteval bool default_is_sendable();
+consteval bool default_is_sendable(std::meta::info type);
 }
 
 template <class T>
-constexpr bool is_sendable = detail::default_is_sendable<T>();
+constexpr bool is_sendable = detail::default_is_sendable(^^T);
 
 template <class T>
 constexpr bool is_sendable<T&> = is_synchronizable<std::remove_cv_t<T>>;
@@ -33,60 +32,58 @@ constexpr bool is_sendable<T[]> = is_sendable<std::remove_cv_t<T>>;
 template <class T>
 concept sendable = is_sendable<T>;
 
+// The info-level face of the trait, named after the predicates of <meta>. Same
+// answer as is_sendable<T>, for code written on the reflection side.
+inline consteval bool is_sendable_type(std::meta::info type) {
+    return detail::trait_value(^^is_sendable, type);
+}
+
 namespace detail {
 
 template <class T>
 constexpr bool dynamic_type_is_known =
     !std::is_polymorphic_v<T> || std::is_final_v<T>;
 
-}
+inline consteval bool default_is_sendable(std::meta::info type) {
+    const auto ctx = std::meta::access_context::unchecked();
+    const auto unqualified = std::meta::remove_cv(type);
 
-namespace detail {
+    // A cv-qualified type reaches the primary template even when its
+    // unqualified form has a specialization; forward so both agree.
+    if (unqualified != type)
+        return is_sendable_type(unqualified);
 
-template <class T>
-consteval bool all_bases_and_members_sendable() {
-    constexpr auto ctx = std::meta::access_context::unchecked();
+    if (is_synchronizable_type(type) || std::meta::is_scalar_type(type))
+        return true;
 
-    template for (constexpr std::meta::info b :
-                  std::define_static_array(std::meta::bases_of(^^T, ctx)))
-    {
-        using B = [:std::meta::type_of(b):];
-        if (!is_sendable<B>)
+    if (std::meta::is_void_type(type))
+        return false;
+
+    if (!std::meta::is_class_type(type) && !std::meta::is_union_type(type))
+        throw std::meta::exception(
+            u8"is_sendable<T> supports only scalar, class and union types",
+            type);
+
+    if (!std::meta::is_complete_type(type))
+        throw std::meta::exception(
+            u8"is_sendable<T> requires a complete type — specialize is_sendable "
+            u8"for types holding a pointer to an incomplete type (the pimpl "
+            u8"idiom)",
+            type);
+
+    if (!has_only_default_copy_move_constructor_assignment(type)
+        || has_unreflectable_state(type))
+        return false;
+
+    for (std::meta::info b : std::meta::bases_of(type, ctx))
+        if (!is_sendable_type(std::meta::type_of(b)))
             return false;
-    }
 
-    template for (constexpr std::meta::info m :
-                  std::define_static_array(std::meta::nonstatic_data_members_of(^^T, ctx)))
-    {
-        using M = [:std::meta::type_of(m):];
-        if (!is_sendable<std::remove_cv_t<M>>)
+    for (std::meta::info m : std::meta::nonstatic_data_members_of(type, ctx))
+        if (!is_sendable_type(std::meta::remove_cv(std::meta::type_of(m))))
             return false;
-    }
 
     return true;
-}
-
-template <class T>
-consteval bool default_is_sendable() {
-    if constexpr (!std::is_same_v<T, std::remove_cv_t<T>>) {
-        return is_sendable<std::remove_cv_t<T>>;
-    } else if constexpr (is_synchronizable<T>) {
-        return true;
-    } else if constexpr (std::is_scalar_v<T>) {
-        return true;
-    } else if constexpr (std::is_void_v<T>) {
-        return false;
-    } else {
-        static_assert(std::is_class_v<T> || std::is_union_v<T>,
-                      "is_sendable<T> supports only scalar, class and union types");
-        static_assert(std::meta::is_complete_type(^^T),
-                      "is_sendable<T> requires a complete type — specialize "
-                      "is_sendable for types holding a pointer to an "
-                      "incomplete type (the pimpl idiom)");
-        return has_only_default_copy_move_constructor_assignment(^^T)
-            && !has_unreflectable_state(^^T)
-            && all_bases_and_members_sendable<T>();
-    }
 }
 
 }

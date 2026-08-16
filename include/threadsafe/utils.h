@@ -5,11 +5,11 @@
 
 namespace threadsafe::detail {
 
-// A closure type reports no bases and no non-static data members, whatever it
-// captures, so a recursion over the reflected members of one concludes "no
-// state" for a lambda holding a dangling reference. Occupying storage while
-// reflecting nothing is the signature of state the traits cannot inspect —
-// except for a polymorphic class, whose unaccounted size is the vptr.
+inline consteval bool trait_value(std::meta::info trait, std::meta::info type) {
+    return std::meta::extract<bool>(std::meta::substitute(trait, {type}));
+}
+
+// Mostly for closure type.
 inline consteval bool has_unreflectable_state(std::meta::info type) {
     const auto ctx = std::meta::access_context::unchecked();
     return !std::meta::is_empty_type(type)
