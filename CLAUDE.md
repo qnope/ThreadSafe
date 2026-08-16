@@ -68,6 +68,18 @@ True if a `T` owns its data or keeps its referent alive. Ownership is **transiti
 
 Reflection cannot tell an owned pointer from a borrowed one, so **every owning std type needs an explicit rule** — the same obligation `is_sendable` already has in `containers.h`. Without one, the recursion descends into the implementation's internal raw pointers and wrongly answers false.
 
+### `copy_on_write<T>` and the `mutable` guard
+
+A shared `T` read through `const` only; `as_mutable()` copies first whenever the block is shared. The sendable rule is the reason the type exists:
+
+```cpp
+is_sendable<copy_on_write<T>> = is_sendable<T> && (is_synchronizable<T> || !detail::has_mutable_state(^^T));
+```
+
+`is_sendable<T>` is unconditional — the `T` is copied on the receiving thread and destroyed by whoever drops the last handle. The second factor is what `shared_ptr` cannot say: two handles sharing a `T` only ever *read* it, and reading concurrently is safe unless the `T` writes from a `const` method. `detail::has_mutable_state` (`utils.h`) is the proxy for that, walking bases, by-value members and arrays. It stops at any type whose parent is `^^std` and reads its template arguments instead — [res.on.data.races] guarantees the standard library's `const` paths, and reflecting its internals only reports implementation noise (`_Prime_rehash_policy::_M_next_resize` is `mutable`, which would cost every `unordered_map` its sendability). Do **not** widen that template-argument step past `std`: elsewhere an argument says nothing about what is held.
+
+The type is not synchronizable — `as_mutable()` rebinds the handle, so one object belongs to one thread. Share it by copying the handle and sending the copy. Nothing constructs it from a `std::shared_ptr`, and no accessor hands one out: a caller keeping its own would hold a write path the detach cannot see, while pinning the count above one forever.
+
 ### Header structure
 
 The traits are variable templates, so their value is fixed at the point of instantiation. A TU that saw only *some* specializations would compute a different answer for the same type than one that saw them all — silently, and IFNDR across TUs. Each trait header therefore pulls in the full specialization set at its bottom; `tests/test_include_isolation.cpp` pins this. A full specialization written in a header must be `inline`, or every TU emits its own definition and the link fails — and so must a non-template function defined in one, which the `default_is_*` and `is_*_type` functions now are.

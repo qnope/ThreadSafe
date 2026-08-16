@@ -307,6 +307,39 @@ trait here distinguishes a `mutable` cache from an atomic one.
 two nested `lock()` calls on the same object deadlock, and so does taking two `synchronized_value`s
 in opposite orders on two threads. Neither is a type-level property.
 
+**`copy_on_write` sees the `mutable` keyword, not the writes.** Its sendable rule waives
+`is_synchronizable<T>` only when `detail::has_mutable_state(^^T)` is false, and that helper walks
+bases, by-value members, arrays, and — inside namespace `std` only — template arguments. So a `T`
+whose `const` member function writes through a pointer member, or touches a static or
+`thread_local`, passes the guard and races between two readers. The keyword is a proxy for
+logically-const mutation, the same way `is_empty_v` is a proxy for statelessness above.
+
+**And it over-rejects the types that handle it correctly.** A `T` carrying a `mutable std::mutex`
+or a `mutable std::atomic<int>` is precisely one that *is* safe to read concurrently, yet the
+keyword is all the guard sees, so it demands `is_synchronizable<T>`. `THREADSAFE_UNSAFE_ASSERT_SYNCHRONIZABLE`
+is the way out, which puts the promise where it belongs — greppable, at the type.
+
+**Namespace `std` is trusted wholesale.** `has_mutable_state` stops at any type whose parent is
+`^^std` and reads its template arguments instead of its members. The justification is
+[res.on.data.races]: a standard library `const` member function does not modify what other threads
+can reach. It is a real guarantee, but it is taken on faith about the *implementation* — a
+libstdc++ internal is never inspected. It also means the guard is blind to a user type reached
+through a std type by a route other than a template argument.
+
+**`copy_on_write::as_mutable` decides on an approximate count.** `use_count()` is a relaxed load
+and the standard calls it approximate in a multithreaded context. Reading 1 is nonetheless
+conclusive here — no other thread can create a reference, since every handle sharing the block is
+itself non-`synchronizable` and so reachable from one thread only — but the *ordering* is not free:
+the acquire fence in the unique branch is what pairs with the releasing decrements of the handles
+that are gone, so their reads of the value precede the writes the returned reference opens.
+Correctness rests on that pairing, not on a `shared_ptr` guarantee.
+
+**Detaching is untested.** The suite is `static_assert`-only and `std::shared_ptr` is not
+`constexpr` in C++26, so `test_copy_on_write.cpp` pins the traits and the shapes — that a
+non-`const` handle still yields `const T&`, that the variadic constructor does not outrank the copy
+constructor — and nothing about the runtime behaviour of the copy. That the type detaches when
+shared and mutates in place when unique is reviewed code, not tested code.
+
 ---
 
 ## Files changed
@@ -327,6 +360,9 @@ in opposite orders on two threads. Neither is a type-level property.
 | `synchronized_value.h` | **new** — a `shared_mutex`-guarded `T`; the first checked way to share a user type |
 | `tests/test_include_isolation.cpp` | **new** — pins the §3 fix |
 | `tests/test_synchronized_value.cpp` | **new** — traits, guard shape, composition with the launcher |
+| `copy_on_write.h` | **new** — a shared `T` read without a lock, copied only on write |
+| `utils.h` | `has_mutable_state` (§9) — the guard behind `copy_on_write`'s sendable rule |
+| `tests/test_copy_on_write.cpp` | **new** — traits, the `mutable` recursion, const-only access, copy-constructor hijack |
 | `tests/test_safe_callable.cpp` | **deleted** (§8) — its assertions moved verbatim into `test_sendable.cpp` |
 | `threadsafe.h`, `tests/CMakeLists.txt` | drop the deleted header and TU |
 
