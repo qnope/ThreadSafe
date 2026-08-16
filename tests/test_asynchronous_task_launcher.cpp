@@ -62,8 +62,15 @@ static_assert(!can_launch_task<decltype([x = 42] {})>,
               "launch_task — a capturing lambda is not a safe callable");
 static_assert(!can_launch_scoped_task<std::function<void()>>,
               "launch_scoped_task — std::function owns unsynchronized state");
-static_assert(can_launch_task<SyncCounter>,
-              "launch_task — a synchronizable callable is a safe callable");
+static_assert(can_launch_scoped_task<std::reference_wrapper<SyncCounter>>,
+              "launch_scoped_task — a synchronizable callable may be shared by"
+              " reference, since the launcher waits for the task");
+static_assert(!can_launch_task<std::reference_wrapper<SyncCounter>>,
+              "launch_task — the callable must keep itself alive too, and a"
+              " reference_wrapper does not");
+static_assert(!can_launch_task<SyncCounter>,
+              "launch_task — the launcher owns its callable, so a non-copyable"
+              " one cannot cross; share it with std::ref instead");
 
 static_assert(!can_launch_task<decltype([](NonSendable) {}), NonSendable>,
               "launch_task — a user-provided copy constructor could share"
