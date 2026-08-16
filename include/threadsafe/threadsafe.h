@@ -7,3 +7,4 @@
 #include <threadsafe/vocabulary.h>
 #include <threadsafe/lifetime_aware.h>
 #include <threadsafe/asynchronous_task_launcher.h>
+#include <threadsafe/synchronized_value.h>

@@ -9,5 +9,6 @@ add_library(threadsafe_tests OBJECT
     test_asynchronous_task_launcher.cpp
     test_soundness_regressions.cpp
     test_include_isolation.cpp
+    test_synchronized_value.cpp
 )
 target_link_libraries(threadsafe_tests PRIVATE ThreadSafe::threadsafe)

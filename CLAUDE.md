@@ -15,6 +15,8 @@ cmake -B build -DCMAKE_CXX_COMPILER=g++-16
 cmake --build build
 ```
 
+**Avoid** to write useless comments.
+
 ## Architecture: the traits
 
 ### `is_synchronizable<T>` (≈ Rust `Sync`)

@@ -293,6 +293,20 @@ store the former into the latter. Documented in the header.
 **Exceptions.** An exception escaping a task calls `std::terminate`; `launch_scoped_task` looks
 synchronous but cannot propagate one to the caller.
 
+**`synchronized_value`'s guard leaks its reference.** `auto g = v->lock(); T* p = &*g;` carries the
+reference out of the critical section, and nothing in the language sees it. The alternative shape —
+`with_lock(f)` constraining `invoke_result_t<F, T&>` to `lifetime_aware` — would close the *return*
+path only, never a by-reference capture into an enclosing scope. The guard was chosen because it is
+simpler to read for the same real safety.
+
+**`lock_shared()` trusts `const`.** Several readers run concurrently under the shared lock, so a
+`const` member function of `T` that mutates a `mutable` member without synchronization races. No
+trait here distinguishes a `mutable` cache from an atomic one.
+
+**`synchronized_value` has no reentrancy or lock ordering.** `std::shared_mutex` is not recursive:
+two nested `lock()` calls on the same object deadlock, and so does taking two `synchronized_value`s
+in opposite orders on two threads. Neither is a type-level property.
+
 ---
 
 ## Files changed
@@ -310,7 +324,9 @@ synchronous but cannot propagate one to the caller.
 | `asynchronous_task_launcher.h` | `F` must be `sendable` (§4, §8); stop_token assertion |
 | `sendable.h`, `lifetime_aware.h` | `has_unreflectable_state` guard (§7) |
 | `tests/test_soundness_regressions.cpp` | **new** — one block per hole above |
+| `synchronized_value.h` | **new** — a `shared_mutex`-guarded `T`; the first checked way to share a user type |
 | `tests/test_include_isolation.cpp` | **new** — pins the §3 fix |
+| `tests/test_synchronized_value.cpp` | **new** — traits, guard shape, composition with the launcher |
 | `tests/test_safe_callable.cpp` | **deleted** (§8) — its assertions moved verbatim into `test_sendable.cpp` |
 | `threadsafe.h`, `tests/CMakeLists.txt` | drop the deleted header and TU |
 
