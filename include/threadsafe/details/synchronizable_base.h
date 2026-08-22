@@ -10,10 +10,6 @@ namespace threadsafe {
 template <class T>
 constexpr bool is_synchronizable = false;
 
-// Owned storage follows its element, like the is_sendable array rule. It sits
-// with the primary template because it is pure forwarding: it composes with
-// whatever answer T has, including one a TU adds with
-// THREADSAFE_UNSAFE_ASSERT_SYNCHRONIZABLE.
 template <class T, std::size_t N>
 constexpr bool is_synchronizable<T[N]> = is_synchronizable<T>;
 template <class T>

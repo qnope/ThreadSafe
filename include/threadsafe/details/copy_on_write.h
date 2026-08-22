@@ -15,8 +15,6 @@ namespace threadsafe {
 template <class T>
 class copy_on_write {
 public:
-    // No shared_ptr enters the type: a caller keeping its own would hold a write
-    // path the detach never sees, and would pin the count above one forever.
     template <class... Args>
         requires std::constructible_from<T, Args...>
               && (sizeof...(Args) != 1
@@ -33,11 +31,6 @@ public:
     {
         if (ptr_.use_count() != 1)
             ptr_ = std::make_shared<T>(*ptr_);
-        else
-            // use_count() is a relaxed load; the acquire pairs with the
-            // releasing decrements of the copies that are gone, so their reads
-            // of *ptr_ happen before the writes this reference opens.
-            std::atomic_thread_fence(std::memory_order_acquire);
         return *ptr_;
     }
 
@@ -46,11 +39,6 @@ private:
 };
 
 namespace detail {
-// if constexpr: the second factor is never instantiated for a non-sendable T.
-// A plain && only discards the value — GCC still instantiates the right
-// operand, and a self-nesting owned member (vector<Self>) would turn a clean
-// false into a hard error when the const walk reaches it after is_sendable
-// bailed out earlier.
 template <class T>
 consteval bool cow_is_sendable() {
     if constexpr (is_sendable<T>)
@@ -60,9 +48,6 @@ consteval bool cow_is_sendable() {
 }
 }
 
-// Two handles sharing a T read it at the same time, and only read it — mutation
-// always detaches. That is enough for a sendable T whose const face really is
-// read-only, which is exactly what is_synchronizable<const T> says.
 template <class T>
 constexpr bool is_sendable<copy_on_write<T>> = detail::cow_is_sendable<T>();
 

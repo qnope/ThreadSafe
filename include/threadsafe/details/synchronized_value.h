@@ -44,9 +44,7 @@ class synchronized_value {
 
 public:
     using guard = value_guard<T, std::unique_lock<std::shared_mutex>>;
-    // A T that writes under const (a mutable cache the trait cannot clear)
-    // must not let two readers in at once: its lock_shared() degrades to the
-    // exclusive lock.
+
     using const_guard =
         value_guard<const T,
                     std::conditional_t<is_synchronizable<const T>,
