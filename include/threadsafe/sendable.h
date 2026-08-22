@@ -71,7 +71,7 @@ inline consteval bool default_is_sendable(std::meta::info type) {
             u8"idiom)",
             type);
 
-    if (!has_only_default_copy_move_constructor_assignment(type)
+    if (!has_only_default_copy_move_destroy(type)
         || has_unreflectable_state(type))
         return false;
 

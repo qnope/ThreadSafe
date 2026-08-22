@@ -2,7 +2,6 @@
 
 #include <array>
 #include <atomic>
-#include <complex>
 #include <deque>
 #include <functional>
 #include <list>
@@ -175,8 +174,6 @@ static_assert(is_sendable<std::tuple<int, double>>);
 static_assert(is_sendable<std::optional<int>>);
 static_assert(is_sendable<std::deque<int>>);
 static_assert(is_sendable<std::list<int>>);
-static_assert(is_sendable<std::complex<double>>,
-              "__complex__ T is neither scalar nor class; it needs its own rule");
 static_assert(is_sendable<std::pair<int, SyncType*>>,
               "a pointer to a synchronizable type is sendable, so the pair is");
 

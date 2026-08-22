@@ -1,7 +1,6 @@
 #pragma once
 
 #include <array>
-#include <complex>
 #include <optional>
 #include <stop_token>
 #include <tuple>
@@ -40,11 +39,6 @@ template <class T, std::size_t N>
 constexpr bool is_sendable<std::array<T, N>> = is_sendable<T>;
 template <class T, std::size_t N>
 constexpr bool is_lifetime_aware<std::array<T, N>> = is_lifetime_aware<T>;
-
-template <class T>
-constexpr bool is_sendable<std::complex<T>> = is_sendable<T>;
-template <class T>
-constexpr bool is_lifetime_aware<std::complex<T>> = is_lifetime_aware<T>;
 
 template <>
 inline constexpr bool is_synchronizable<std::stop_token> = true;
