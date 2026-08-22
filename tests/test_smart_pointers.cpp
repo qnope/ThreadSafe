@@ -3,6 +3,7 @@
 #include <atomic>
 #include <functional>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include <threadsafe/containers.h>
@@ -14,12 +15,19 @@ struct BadDeleter {
     BadDeleter(const BadDeleter&);
     void operator()(int*) const;
 };
+struct Tree {
+    std::unique_ptr<Tree> left;
+};
+struct SharedNode {
+    std::shared_ptr<SharedNode> next;
+};
 }
 
 template <>
 constexpr bool threadsafe::is_synchronizable<SyncType> = true;
 
 using threadsafe::is_sendable;
+using threadsafe::is_synchronizable;
 
 static_assert(is_sendable<std::unique_ptr<int>>,
               "is_sendable — the default deleter is stateless, so only the pointee matters");
@@ -73,3 +81,35 @@ static_assert(!threadsafe::is_synchronizable<std::atomic<std::shared_ptr<int>>>,
               "is_synchronizable — atomic<T> is synchronizable only when T is sendable");
 static_assert(is_sendable<std::vector<std::unique_ptr<int>>>,
               "is_sendable — containers of smart pointers compose");
+
+static_assert(!is_synchronizable<const std::unique_ptr<int>>,
+              "is_synchronizable — get() const hands out a plain int*");
+static_assert(is_synchronizable<const std::unique_ptr<const int>>,
+              "is_synchronizable — owned storage: the element keeps its own cv "
+              "through get(), the same alias-free assumption the sendable rule "
+              "makes");
+static_assert(!is_synchronizable<const std::unique_ptr<const int, BadDeleter>>,
+              "is_synchronizable — the deleter is stored, so it is read too");
+static_assert(is_synchronizable<const std::default_delete<int>>,
+              "is_synchronizable — same explicit rule as is_sendable, for the "
+              "same constructor-template reason");
+static_assert(!is_synchronizable<const std::shared_ptr<std::string>>
+                  && !is_synchronizable<const std::shared_ptr<const std::string>>,
+              "is_synchronizable — another handle to the same object may be a "
+              "shared_ptr<T>: the pointee's const is never trusted");
+static_assert(is_synchronizable<const std::shared_ptr<std::atomic<int>>>,
+              "is_synchronizable — copying the const handle is refcount-atomic-"
+              "safe, and this pointee handles its own concurrency");
+static_assert(!is_synchronizable<const std::weak_ptr<const std::string>>
+                  && is_synchronizable<const std::weak_ptr<std::atomic<int>>>,
+              "is_synchronizable — a weak_ptr locks into the same access as "
+              "shared_ptr");
+static_assert(!is_synchronizable<const std::reference_wrapper<int>>
+                  && !is_synchronizable<const std::reference_wrapper<const int>>,
+              "is_synchronizable — a const wrapper still shares its referent, "
+              "whose own const proves nothing about other aliases");
+static_assert(is_synchronizable<const std::reference_wrapper<std::atomic<int>>>,
+              "is_synchronizable — the referent handles its own concurrency");
+static_assert(!is_synchronizable<const Tree> && !is_synchronizable<const SharedNode>,
+              "is_synchronizable — an owning self-pointer asks the full trait "
+              "of its pointee, which terminates the recursion");

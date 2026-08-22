@@ -40,6 +40,28 @@ constexpr bool is_sendable<std::array<T, N>> = is_sendable<T>;
 template <class T, std::size_t N>
 constexpr bool is_lifetime_aware<std::array<T, N>> = is_lifetime_aware<T>;
 
+// These need explicit const rules only because their constructor templates
+// block the structural default; the elements are held by value.
+template <class A, class B>
+constexpr bool is_synchronizable<const std::pair<A, B>> =
+    is_synchronizable<const A> && is_synchronizable<const B>;
+
+template <class... Ts>
+constexpr bool is_synchronizable<const std::tuple<Ts...>> =
+    (is_synchronizable<const Ts> && ...);
+
+template <class T>
+constexpr bool is_synchronizable<const std::optional<T>> =
+    is_synchronizable<const T>;
+
+template <class... Ts>
+constexpr bool is_synchronizable<const std::variant<Ts...>> =
+    (is_synchronizable<const Ts> && ...);
+
+template <class T, std::size_t N>
+constexpr bool is_synchronizable<const std::array<T, N>> =
+    is_synchronizable<const T>;
+
 template <>
 inline constexpr bool is_synchronizable<std::stop_token> = true;
 template <>

@@ -4,11 +4,12 @@
 #include <memory>
 #include <mutex>
 #include <shared_mutex>
+#include <type_traits>
 #include <utility>
 
 #include <threadsafe/lifetime_aware.h>
 #include <threadsafe/sendable.h>
-#include <threadsafe/synchronizable_base.h>
+#include <threadsafe/synchronizable.h>
 
 namespace threadsafe {
 
@@ -42,8 +43,14 @@ class synchronized_value {
 
 public:
     using guard = value_guard<T, std::unique_lock<std::shared_mutex>>;
+    // A T that writes under const (a mutable cache the trait cannot clear)
+    // must not let two readers in at once: its lock_shared() degrades to the
+    // exclusive lock.
     using const_guard =
-        value_guard<const T, std::shared_lock<std::shared_mutex>>;
+        value_guard<const T,
+                    std::conditional_t<is_synchronizable<const T>,
+                                       std::shared_lock<std::shared_mutex>,
+                                       std::unique_lock<std::shared_mutex>>>;
 
     template <class... Args>
         requires std::constructible_from<T, Args...>

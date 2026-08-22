@@ -3,6 +3,8 @@
 #include <concepts>
 #include <functional>
 #include <memory>
+#include <mutex>
+#include <shared_mutex>
 #include <string>
 #include <utility>
 
@@ -11,6 +13,11 @@
 namespace {
 struct NonSendable {
     NonSendable(NonSendable const&) {}
+};
+
+struct Memo {
+    int key;
+    mutable int cached;
 };
 
 using sync_int = threadsafe::synchronized_value<int>;
@@ -101,3 +108,13 @@ static_assert(can_lock<sync_int&> && can_lock_shared<sync_int&>);
 static_assert(!can_lock<const sync_int&>,
               "lock — a const synchronized_value grants readers only");
 static_assert(can_lock_shared<const sync_int&>);
+
+static_assert(std::same_as<sync_int::const_guard,
+                           threadsafe::value_guard<
+                               const int, std::shared_lock<std::shared_mutex>>>,
+              "lock_shared — readers of a const-synchronizable T really share");
+static_assert(std::same_as<threadsafe::synchronized_value<Memo>::const_guard,
+                           threadsafe::value_guard<
+                               const Memo, std::unique_lock<std::shared_mutex>>>,
+              "lock_shared — a T that writes under const serializes its readers "
+              "instead of racing them");

@@ -1,10 +1,12 @@
 #include <threadsafe/copy_on_write.h>
 
+#include <atomic>
 #include <concepts>
 #include <map>
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -30,6 +32,19 @@ struct Arrayed {
 
 struct SyncCache {
     mutable std::optional<int> parsed;
+};
+
+struct SafeCounter {
+    mutable std::atomic<int> hits;
+};
+
+struct SelfRef {
+    SelfRef* next;
+};
+
+struct PList {
+    int v;
+    const PList* tail;
 };
 
 template <class T>
@@ -60,9 +75,10 @@ static_assert(is_sendable<cow<int>>,
               "is_sendable — readers only ever see a const T, and a writer "
               "detaches before touching a shared one");
 static_assert(is_sendable<cow<std::string>> && is_sendable<cow<std::vector<int>>>
-                  && is_sendable<cow<std::map<int, std::string>>>,
-              "is_sendable — a standard container holds its elements behind "
-              "pointers, so the walk finds nothing mutable in them");
+                  && is_sendable<cow<std::map<int, std::string>>>
+                  && is_sendable<cow<std::unordered_map<int, std::string>>>,
+              "is_sendable — [res.on.data.races] makes a const standard "
+              "container read-safe, which its explicit const rule now states");
 static_assert(!is_sendable<cow<NonSendable>>,
               "is_sendable — the T is copied on the receiving thread and "
               "destroyed by whoever drops the last handle");
@@ -71,20 +87,28 @@ static_assert(!is_sendable<cow<Cache>>,
               "is_sendable — a const method that writes turns two concurrent "
               "readers into a data race the detach never sees");
 static_assert(!is_sendable<cow<Outer>>,
-              "is_sendable — mutable state is looked for through members");
+              "is_sendable — the const recursion walks members");
 static_assert(!is_sendable<cow<Arrayed>>,
-              "is_sendable — and through arrays");
+              "is_sendable — and arrays");
 static_assert(!is_sendable<cow<std::optional<Cache>>>,
               "is_sendable — a member held by value is walked into, whoever "
               "declares it");
-static_assert(is_sendable<cow<std::vector<Cache>>>,
-              "is_sendable — but an element behind a pointer is out of reach, "
-              "and a template argument is not read as a member");
+static_assert(!is_sendable<cow<std::vector<Cache>>>,
+              "is_sendable — an element is reached by every reader: the const "
+              "rule follows the container's template arguments where the old "
+              "mutable walk could not");
 static_assert(is_sendable<cow<Tagged<Cache>>>,
-              "is_sendable — same for a template argument of a user type");
+              "is_sendable — a template argument of a user type is still not "
+              "read as a member");
 static_assert(is_sendable<cow<SyncCache>>,
               "is_sendable — a T that handles its own concurrent access needs "
               "no help from the copy-on-write discipline");
+static_assert(is_sendable<cow<SafeCounter>>,
+              "is_sendable — a mutable member whose own type handles the "
+              "concurrency no longer costs the copy-on-write sendability");
+static_assert(!is_sendable<cow<SelfRef>> && !is_sendable<cow<PList>>,
+              "is_sendable — self-referential types answer, they do not recurse "
+              "forever");
 
 static_assert(!is_synchronizable<cow<int>>,
               "is_synchronizable — as_mutable rebinds the handle, so one "

@@ -18,31 +18,6 @@ inline consteval bool has_unreflectable_state(std::meta::info type) {
         && std::meta::nonstatic_data_members_of(type, ctx).empty();
 }
 
-// Only the mutable keyword, and only along bases, by-value members and arrays:
-// a mutable behind a pointer is out of reach.
-inline consteval bool has_mutable_state(std::meta::info type) {
-    const auto ctx = std::meta::access_context::unchecked();
-    type = std::meta::remove_all_extents(std::meta::remove_cv(type));
-
-    if (!std::meta::is_class_type(type) && !std::meta::is_union_type(type))
-        return false;
-
-    if (!std::meta::is_complete_type(type))
-        throw std::meta::exception(
-            u8"has_mutable_state requires a complete type", type);
-
-    for (std::meta::info b : std::meta::bases_of(type, ctx))
-        if (has_mutable_state(std::meta::type_of(b)))
-            return true;
-
-    for (std::meta::info m : std::meta::nonstatic_data_members_of(type, ctx))
-        if (std::meta::is_mutable_member(m)
-            || has_mutable_state(std::meta::type_of(m)))
-            return true;
-
-    return false;
-}
-
 inline consteval bool is_copy_move_destroy_member(std::meta::info m) {
     return std::meta::is_copy_constructor(m)
         || std::meta::is_move_constructor(m)

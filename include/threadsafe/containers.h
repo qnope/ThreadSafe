@@ -70,6 +70,77 @@ template <class K, class H, class Eq, class A>
 constexpr bool is_sendable<std::unordered_multiset<K, H, Eq, A>> =
     is_sendable<K> && is_sendable<H> && is_sendable<Eq> && is_sendable<A>;
 
+
+// [res.on.data.races]: the const member functions of a standard container may
+// run concurrently, so a const container is read-safe exactly when everything
+// a reader reaches through it — elements and stored policies — is. The
+// explicit rules also keep the recursion out of libstdc++ internals, whose
+// mutable members (unordered_*'s rehash policy) are covered by that guarantee.
+template <class T>
+constexpr bool is_synchronizable<const std::allocator<T>> = true;
+
+template <class T, class A>
+constexpr bool is_synchronizable<const std::vector<T, A>> =
+    is_synchronizable<const T> && is_synchronizable<const A>;
+
+template <class T, class A>
+constexpr bool is_synchronizable<const std::deque<T, A>> =
+    is_synchronizable<const T> && is_synchronizable<const A>;
+
+template <class T, class A>
+constexpr bool is_synchronizable<const std::list<T, A>> =
+    is_synchronizable<const T> && is_synchronizable<const A>;
+
+template <class T, class A>
+constexpr bool is_synchronizable<const std::forward_list<T, A>> =
+    is_synchronizable<const T> && is_synchronizable<const A>;
+
+template <class C, class Tr, class A>
+constexpr bool is_synchronizable<const std::basic_string<C, Tr, A>> =
+    is_synchronizable<const C> && is_synchronizable<const A>;
+
+template <class K, class V, class Cmp, class A>
+constexpr bool is_synchronizable<const std::map<K, V, Cmp, A>> =
+    is_synchronizable<const K> && is_synchronizable<const V>
+    && is_synchronizable<const Cmp> && is_synchronizable<const A>;
+
+template <class K, class V, class Cmp, class A>
+constexpr bool is_synchronizable<const std::multimap<K, V, Cmp, A>> =
+    is_synchronizable<const K> && is_synchronizable<const V>
+    && is_synchronizable<const Cmp> && is_synchronizable<const A>;
+
+template <class K, class Cmp, class A>
+constexpr bool is_synchronizable<const std::set<K, Cmp, A>> =
+    is_synchronizable<const K> && is_synchronizable<const Cmp>
+    && is_synchronizable<const A>;
+
+template <class K, class Cmp, class A>
+constexpr bool is_synchronizable<const std::multiset<K, Cmp, A>> =
+    is_synchronizable<const K> && is_synchronizable<const Cmp>
+    && is_synchronizable<const A>;
+
+template <class K, class V, class H, class Eq, class A>
+constexpr bool is_synchronizable<const std::unordered_map<K, V, H, Eq, A>> =
+    is_synchronizable<const K> && is_synchronizable<const V>
+    && is_synchronizable<const H> && is_synchronizable<const Eq>
+    && is_synchronizable<const A>;
+
+template <class K, class V, class H, class Eq, class A>
+constexpr bool is_synchronizable<const std::unordered_multimap<K, V, H, Eq, A>> =
+    is_synchronizable<const K> && is_synchronizable<const V>
+    && is_synchronizable<const H> && is_synchronizable<const Eq>
+    && is_synchronizable<const A>;
+
+template <class K, class H, class Eq, class A>
+constexpr bool is_synchronizable<const std::unordered_set<K, H, Eq, A>> =
+    is_synchronizable<const K> && is_synchronizable<const H>
+    && is_synchronizable<const Eq> && is_synchronizable<const A>;
+
+template <class K, class H, class Eq, class A>
+constexpr bool is_synchronizable<const std::unordered_multiset<K, H, Eq, A>> =
+    is_synchronizable<const K> && is_synchronizable<const H>
+    && is_synchronizable<const Eq> && is_synchronizable<const A>;
+
 template <class T>
 constexpr bool is_lifetime_aware<std::allocator<T>> = true;
 

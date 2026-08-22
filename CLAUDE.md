@@ -27,11 +27,27 @@ True if a `T` may be used from multiple threads at the same time.
 - Function types are synchronizable (code is immutable); function *pointers* need no special case anywhere — the sendable pointer rule below covers them.
 - `is_synchronizable<std::atomic<T>>` = `is_sendable<T>`.
 
+#### `is_synchronizable<const T>` — thread-safe read
+
+True if a `const T` may be read from multiple threads at the same time. `is_synchronizable<T>` implies it; otherwise the default (`default_is_const_synchronizable`, `synchronizable.h`) accepts a class when it passes the same structural guard as `is_sendable` (`has_only_default_copy_move_destroy` plus the closure rule), every base is const-synchronizable, and every non-static data member is:
+
+- `mutable` → `is_synchronizable<M>` in full — writable through const, so the member must handle the concurrency itself; `mutable std::atomic<int>` passes.
+- a reference → `is_synchronizable<remove_const_t<referent>>` in full.
+- otherwise → `is_synchronizable<const M>`, recursively.
+
+**Const behind an indirection is never trusted**: a `const T*`, `shared_ptr<const T>`, `weak_ptr<const T>`, `reference_wrapper<const T>` or `const T&` member may have been created from a non-const access, so the object can still be written through another alias — those forms ask the full trait of the `remove_const`'d pointee. By-value const *is* trusted: the consumers below construct their `T` in place, so its by-value subobjects are alias-free. `unique_ptr<const T>` sides with by-value — owned storage, the same alias-free assumption its `is_sendable` rule makes. Non-pointer scalars are true; arrays follow their element (`is_synchronizable<T[N]>` = `is_synchronizable<T>`, with dedicated `const T[N]` forms because `<const T>` matches a const array and would tie with `<T[N]>`).
+
+Every owning std type needs an explicit const rule — the same obligation `is_lifetime_aware` has; the rules in `containers.h`, `vocabulary.h` and `smart_pointers.h` encode [res.on.data.races] per container: `is_synchronizable<const std::vector<T, A>>` = `is_synchronizable<const T> && is_synchronizable<const A>`, and so on. The vocabulary types need theirs only because their constructor templates block the structural default; empty policies (`std::less`, `std::hash`, `std::equal_to`) pass the default and need none.
+
+`THREADSAFE_UNSAFE_ASSERT_SYNCHRONIZABLE(const X)` is meaningful: it asserts read-only sharing only, and the full specialization outranks the `const T` partial one. Do not make const in the macro an error.
+
+Consumers: `copy_on_write` (below), and `synchronized_value`, whose `lock_shared()` hands out a shared lock only when `is_synchronizable<const T>` — otherwise `const_guard` degrades to the exclusive lock and readers of a const-writing `T` are serialized instead of raced.
+
 ### `is_sendable<T>` (≈ Rust `Send`)
 
 True if a `T` may be sent from one thread to another.
 
-- `is_sendable<T&>` = `is_sendable<T*>` = `is_synchronizable<T>` (sending a reference or pointer means sharing the referent).
+- `is_sendable<T&>` = `is_sendable<T*>` = `is_synchronizable<T>` (sending a reference or pointer means sharing the referent; cv on the referent is stripped — const behind an indirection is never trusted, see `is_synchronizable<const T>`).
 - Default for a non-reference `T`, in order:
   1. If `is_synchronizable<T>` is true, `is_sendable<T>` is true. **Deliberate deviation from Rust** (where `Sync` does not imply `Send`) — do not "fix" this.
   2. Otherwise `T` is sendable if it has no user-provided copy/move constructor, assignment operator or destructor — defaulted or deleted members, implicit or explicit, are fine; detected via C++26 reflection (`has_only_default_copy_move_destroy`, `utils.h`) — and all of its base classes and non-static data members are sendable. The destructor is in the set for the same reason as the rest: whoever drops the object destroys it, and after a send that is the destination thread. The conservatism is real and accepted — `struct Owner { std::unique_ptr<int> p; ~Owner() {} };` is not sendable although it would be safe; write `= default` or specialize.
@@ -69,21 +85,21 @@ True if a `T` owns its data or keeps its referent alive. Ownership is **transiti
 
 Reflection cannot tell an owned pointer from a borrowed one, so **every owning std type needs an explicit rule** — the same obligation `is_sendable` already has in `containers.h`. Without one, the recursion descends into the implementation's internal raw pointers and wrongly answers false.
 
-### `copy_on_write<T>` and the `mutable` guard
+### `copy_on_write<T>`
 
 A shared `T` read through `const` only; `as_mutable()` copies first whenever the block is shared. The sendable rule is the reason the type exists:
 
 ```cpp
-is_sendable<copy_on_write<T>> = is_sendable<T> && (is_synchronizable<T> || !detail::has_mutable_state(^^T));
+is_sendable<copy_on_write<T>> = is_sendable<T> && is_synchronizable<const T>   // detail::cow_is_sendable<T>()
 ```
 
-`is_sendable<T>` is unconditional — the `T` is copied on the receiving thread and destroyed by whoever drops the last handle. The second factor is what `shared_ptr` cannot say: two handles sharing a `T` only ever *read* it, and reading concurrently is safe unless the `T` writes from a `const` method. `detail::has_mutable_state` (`utils.h`) is the proxy for that, walking bases, by-value members and arrays — a `mutable` behind a pointer is out of reach, and a template argument is not a member. So `std::optional<Cache>` is caught (it holds its `Cache` by value) while `std::vector<Cache>` is not. The walk descends into the standard library's own internals, and what it finds there is binding: libstdc++ makes `_Prime_rehash_policy::_M_next_resize` `mutable`, so `copy_on_write<std::unordered_map<...>>` is **not** sendable — false, since [res.on.data.races] covers that `const` path, and the price of not having a rule that turned on inline namespaces. There was a rule stopping the walk at any type whose parent is `^^std` and reading its template arguments instead, justified by [res.on.data.races]; it was removed because `parent_of` answers `std::__cxx11` for `std::string` and `std::list`, so which container got the element-reading behaviour was an accident of inline namespaces — `std::list<Cache, MyAlloc<Cache>>` and `std::list<Cache>` disagreed on an unchanged element type.
+`is_sendable<T>` is unconditional — the `T` is copied on the receiving thread and destroyed by whoever drops the last handle. The second factor is what `shared_ptr` cannot say: two handles sharing a `T` only ever *read* it, and `is_synchronizable<const T>` states exactly when that concurrent read is safe. It is spelled `detail::cow_is_sendable<T>()` with an `if constexpr` rather than a plain `&&`: GCC instantiates the right operand even when the left is already false, and a `T` whose const walk re-enters its own initializer past the member where `is_sendable` bailed out (a self-nesting owned member, `std::vector<Self>`-shaped) would turn that clean false into a hard error. So `cow<std::unordered_map<...>>` is sendable ([res.on.data.races], stated by the container's const rule instead of tripping on libstdc++'s `mutable` `_M_next_resize`), `cow<std::vector<Cache>>` is not (readers reach the elements — the const rule follows the container's template arguments), and a `mutable std::atomic<int>` member no longer costs the sendability. The previous proxy, `detail::has_mutable_state` with its `parent_of == ^^std` stop, is gone: the per-container const rules state [res.on.data.races] deliberately, where `parent_of` made it an accident of inline namespaces (`std::__cxx11`).
 
 The type is not synchronizable — `as_mutable()` rebinds the handle, so one object belongs to one thread. Share it by copying the handle and sending the copy. Nothing constructs it from a `std::shared_ptr`, and no accessor hands one out: a caller keeping its own would hold a write path the detach cannot see, while pinning the count above one forever.
 
 ### Header structure
 
-The traits are variable templates, so their value is fixed at the point of instantiation. A TU that saw only *some* specializations would compute a different answer for the same type than one that saw them all — silently, and IFNDR across TUs. Each trait header therefore pulls in the full specialization set at its bottom; `tests/test_include_isolation.cpp` pins this. A full specialization written in a header must be `inline`, or every TU emits its own definition and the link fails — and so must a non-template function defined in one, which the `default_is_*` and `is_*_type` functions now are.
+The traits are variable templates, so their value is fixed at the point of instantiation. A TU that saw only *some* specializations would compute a different answer for the same type than one that saw them all — silently, and IFNDR across TUs. Each trait header therefore pulls in the full specialization set at its bottom; `tests/test_include_isolation.cpp` pins this. The `const T` machinery lives in `synchronizable.h`, not `synchronizable_base.h`: `sendable.h` top-includes the base header before declaring `is_sendable`, so the base header can never bottom-include the specialization set. A full specialization written in a header must be `inline`, or every TU emits its own definition and the link fails — and so must a non-template function defined in one, which the `default_is_*` and `is_*_type` functions now are.
 
 ### The info-level face of the traits
 

@@ -26,6 +26,11 @@ struct BadCompare {
     bool operator()(int, int) const;
 };
 
+struct MutCache {
+    int raw;
+    mutable int parsed;
+};
+
 struct MoveOnlyStrings {
     std::vector<std::string> strings;
     MoveOnlyStrings(const MoveOnlyStrings&) = delete;
@@ -37,6 +42,7 @@ struct MoveOnlyStrings {
 }
 
 using threadsafe::is_sendable;
+using threadsafe::is_synchronizable;
 
 static_assert(is_sendable<std::allocator<int>>,
               "is_sendable — std::allocator is stateless, sending it is safe");
@@ -95,3 +101,42 @@ static_assert(is_sendable<const std::vector<int>>,
               "is_sendable — cv-qualified T forwards to the container specialization");
 static_assert(!is_sendable<std::vector<int>&>,
               "is_sendable — sending a reference shares the container, which is not synchronizable");
+
+static_assert(is_synchronizable<const std::vector<int>>
+                  && is_synchronizable<const std::string>
+                  && is_synchronizable<const std::deque<int>>
+                  && is_synchronizable<const std::list<int>>
+                  && is_synchronizable<const std::forward_list<int>>,
+              "is_synchronizable — [res.on.data.races]: const member functions "
+              "of a standard container may run concurrently");
+static_assert(is_synchronizable<const std::map<int, std::string>>
+                  && is_synchronizable<const std::multimap<int, std::string>>
+                  && is_synchronizable<const std::set<int>>
+                  && is_synchronizable<const std::multiset<int>>,
+              "is_synchronizable — and their stored policies are read too");
+static_assert(is_synchronizable<const std::unordered_map<int, std::string>>
+                  && is_synchronizable<const std::unordered_multimap<int, std::string>>
+                  && is_synchronizable<const std::unordered_set<int>>
+                  && is_synchronizable<const std::unordered_multiset<int>>,
+              "is_synchronizable — the explicit rule is what keeps libstdc++'s "
+              "mutable rehash-policy internals out of the recursion");
+static_assert(!is_synchronizable<std::vector<int>>,
+              "is_synchronizable — without the const the container is writable");
+static_assert(!is_synchronizable<const std::vector<MutCache>>,
+              "is_synchronizable — a reader reaches the elements, so their "
+              "const form must be read-safe too");
+static_assert(!is_synchronizable<const std::vector<int*>>
+                  && !is_synchronizable<const std::vector<const int*>>,
+              "is_synchronizable — an element that borrows gives readers a "
+              "write path, and a pointed-to const proves nothing");
+static_assert(is_synchronizable<const std::allocator<int>>,
+              "is_synchronizable — stateless, ruled explicitly because its "
+              "converting-constructor template blocks the structural default");
+static_assert(is_synchronizable<const std::less<int>>
+                  && is_synchronizable<const std::hash<int>>
+                  && is_synchronizable<const std::equal_to<int>>,
+              "is_synchronizable — empty policies with no constructor templates "
+              "pass the structural default, no rule needed");
+static_assert(!is_synchronizable<const std::set<int, BadCompare>>,
+              "is_synchronizable — a stored policy with a user-provided copy "
+              "fails the structural guard");

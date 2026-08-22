@@ -48,3 +48,5 @@ static_assert(threadsafe::is_sendable_type(^^Holder),
               "the info-level face of the trait answers like is_sendable<T>");
 static_assert(threadsafe::is_synchronizable_type(^^Opaque));
 static_assert(threadsafe::is_lifetime_aware_type(^^std::string));
+static_assert(threadsafe::is_synchronizable_type(^^const std::vector<int>),
+              "the const rule reads specializations back through substitute too");

@@ -16,6 +16,7 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace {
@@ -77,6 +78,7 @@ THREADSAFE_UNSAFE_ASSERT_SYNCHRONIZABLE(SyncType);
 
 using threadsafe::is_lifetime_aware;
 using threadsafe::is_sendable;
+using threadsafe::is_synchronizable;
 
 static_assert(!is_lifetime_aware<HoldsPointer>,
               "a struct holding a raw pointer owns nothing");
@@ -179,3 +181,19 @@ static_assert(is_sendable<std::pair<int, SyncType*>>,
 
 static_assert(!threadsafe::is_synchronizable<threadsafe::asynchronous_task_launcher>,
               "threads_ is a plain vector; launching from two threads races");
+
+static_assert(is_synchronizable<const std::pair<int, std::string>>
+                  && is_synchronizable<const std::tuple<int, double>>
+                  && is_synchronizable<const std::optional<int>>
+                  && is_synchronizable<const std::variant<int, std::string>>
+                  && is_synchronizable<const std::array<int, 4>>,
+              "is_synchronizable — the vocabulary types need explicit const "
+              "rules only because their constructor templates block the "
+              "structural default");
+static_assert(!is_synchronizable<const std::tuple<int, int*>>
+                  && !is_synchronizable<const std::optional<int*>>,
+              "is_synchronizable — an element that borrows gives readers a "
+              "write path");
+static_assert(is_synchronizable<const std::stop_token>,
+              "is_synchronizable — a full specialization satisfies the first "
+              "disjunct, no const rule needed");
