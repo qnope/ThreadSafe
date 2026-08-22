@@ -1,5 +1,6 @@
 #include <threadsafe/threadsafe.h>
 
+#include <atomic>
 #include <concepts>
 #include <cstddef>
 #include <functional>
@@ -8,6 +9,10 @@
 namespace {
 
 struct SyncType {};
+
+struct MutableCounters {
+    mutable std::atomic<int> slots[4];
+};
 
 struct EmptyCallable {
     void operator()() const {}
@@ -152,6 +157,15 @@ static_assert(!is_sendable<void*>,
               "is_sendable — sending an object pointer shares the referent");
 static_assert(is_sendable<SyncType*>,
               "is_sendable — a pointer to a synchronizable type is sendable");
+static_assert(is_sendable<std::atomic<int> (*)[4]>,
+              "is_sendable — a pointer to an array shares the array, so the "
+              "element's synchronizability decides");
+static_assert(!is_sendable<int (*)[4]>,
+              "is_sendable — a pointer to an array shares the array, so the "
+              "element's synchronizability decides");
+static_assert(is_sendable<threadsafe::copy_on_write<MutableCounters>>,
+              "is_sendable — a mutable array member is writable through const, "
+              "so the shared read asks the element's full synchronizability");
 static_assert(is_sendable<const int>,
               "is_sendable — cv-qualified T forwards to T");
 static_assert(!is_sendable<const UserCopyCtor>,
