@@ -1,13 +1,10 @@
-#include <threadsafe/smart_pointers.h>
+#include <threadsafe/threadsafe.h>
 
 #include <atomic>
 #include <functional>
 #include <memory>
 #include <string>
 #include <vector>
-
-#include <threadsafe/containers.h>
-#include <threadsafe/synchronizable.h>
 
 namespace {
 struct SyncType {};

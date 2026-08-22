@@ -6,9 +6,9 @@
 #include <type_traits>
 #include <utility>
 
-#include <threadsafe/lifetime_aware.h>
-#include <threadsafe/sendable.h>
-#include <threadsafe/synchronizable.h>
+#include <threadsafe/details/lifetime_aware.h>
+#include <threadsafe/details/sendable.h>
+#include <threadsafe/details/synchronizable.h>
 
 namespace threadsafe {
 

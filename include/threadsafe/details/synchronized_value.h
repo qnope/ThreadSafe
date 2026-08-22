@@ -7,9 +7,9 @@
 #include <type_traits>
 #include <utility>
 
-#include <threadsafe/lifetime_aware.h>
-#include <threadsafe/sendable.h>
-#include <threadsafe/synchronizable.h>
+#include <threadsafe/details/lifetime_aware.h>
+#include <threadsafe/details/sendable.h>
+#include <threadsafe/details/synchronizable.h>
 
 namespace threadsafe {
 
@@ -29,7 +29,8 @@ private:
     template <class>
     friend class synchronized_value;
 
-    value_guard(std::shared_mutex& m, T& v) : lock_(m), value_(&v) {}
+    value_guard(std::shared_mutex& mutex, T& value)
+        : lock_(mutex), value_(&value) {}
 
     Lock lock_;
     T* value_;

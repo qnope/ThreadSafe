@@ -7,7 +7,7 @@
 #include <ranges>
 #include <type_traits>
 
-#include <threadsafe/utils.h>
+#include <threadsafe/details/utils.h>
 
 namespace threadsafe {
 
@@ -52,8 +52,10 @@ inline consteval bool is_lifetime_aware_type(std::meta::info type) {
 namespace detail {
 
 inline consteval bool default_is_lifetime_aware(std::meta::info type) {
-    const auto ctx = std::meta::access_context::unchecked();
-    const auto unqualified = std::meta::remove_cv(type);
+    using namespace std::meta;
+
+    const auto context = access_context::unchecked();
+    const auto unqualified = remove_cv(type);
 
     // A cv-qualified type reaches the primary template even when its
     // unqualified form has a specialization; forward so both agree.
@@ -63,22 +65,22 @@ inline consteval bool default_is_lifetime_aware(std::meta::info type) {
     if (trait_value(^^std::ranges::borrowed_range, type))
         return false;
 
-    if (!std::meta::is_class_type(type) && !std::meta::is_union_type(type))
+    if (!is_class_type(type) && !is_union_type(type))
         return true;
 
-    if (!std::meta::is_complete_type(type))
-        throw std::meta::exception(
+    if (!is_complete_type(type))
+        throw exception(
             u8"is_lifetime_aware<T> requires a complete type", type);
 
     if (has_unreflectable_state(type))
         return false;
 
-    for (std::meta::info b : std::meta::bases_of(type, ctx))
-        if (!is_lifetime_aware_type(std::meta::type_of(b)))
+    for (info base : bases_of(type, context))
+        if (!is_lifetime_aware_type(type_of(base)))
             return false;
 
-    for (std::meta::info m : std::meta::nonstatic_data_members_of(type, ctx))
-        if (!is_lifetime_aware_type(std::meta::remove_cv(std::meta::type_of(m))))
+    for (info member : nonstatic_data_members_of(type, context))
+        if (!is_lifetime_aware_type(remove_cv(type_of(member))))
             return false;
 
     return true;
@@ -88,6 +90,6 @@ inline consteval bool default_is_lifetime_aware(std::meta::info type) {
 
 }
 
-#include <threadsafe/containers.h>
-#include <threadsafe/smart_pointers.h>
-#include <threadsafe/vocabulary.h>
+#include <threadsafe/details/containers.h>
+#include <threadsafe/details/smart_pointers.h>
+#include <threadsafe/details/vocabulary.h>

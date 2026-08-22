@@ -4,8 +4,8 @@
 #include <meta>
 #include <type_traits>
 
-#include <threadsafe/synchronizable_base.h>
-#include <threadsafe/utils.h>
+#include <threadsafe/details/synchronizable_base.h>
+#include <threadsafe/details/utils.h>
 
 namespace threadsafe {
 
@@ -45,27 +45,29 @@ constexpr bool dynamic_type_is_known =
     !std::is_polymorphic_v<T> || std::is_final_v<T>;
 
 inline consteval bool default_is_sendable(std::meta::info type) {
-    const auto ctx = std::meta::access_context::unchecked();
-    const auto unqualified = std::meta::remove_cv(type);
+    using namespace std::meta;
+
+    const auto context = access_context::unchecked();
+    const auto unqualified = remove_cv(type);
 
     // A cv-qualified type reaches the primary template even when its
     // unqualified form has a specialization; forward so both agree.
     if (unqualified != type)
         return is_sendable_type(unqualified);
 
-    if (is_synchronizable_type(type) || std::meta::is_scalar_type(type))
+    if (is_synchronizable_type(type) || is_scalar_type(type))
         return true;
 
-    if (std::meta::is_void_type(type))
+    if (is_void_type(type))
         return false;
 
-    if (!std::meta::is_class_type(type) && !std::meta::is_union_type(type))
-        throw std::meta::exception(
+    if (!is_class_type(type) && !is_union_type(type))
+        throw exception(
             u8"is_sendable<T> supports only scalar, class and union types",
             type);
 
-    if (!std::meta::is_complete_type(type))
-        throw std::meta::exception(
+    if (!is_complete_type(type))
+        throw exception(
             u8"is_sendable<T> requires a complete type — specialize is_sendable "
             u8"for types holding a pointer to an incomplete type (the pimpl "
             u8"idiom)",
@@ -75,12 +77,12 @@ inline consteval bool default_is_sendable(std::meta::info type) {
         || has_unreflectable_state(type))
         return false;
 
-    for (std::meta::info b : std::meta::bases_of(type, ctx))
-        if (!is_sendable_type(std::meta::type_of(b)))
+    for (info base : bases_of(type, context))
+        if (!is_sendable_type(type_of(base)))
             return false;
 
-    for (std::meta::info m : std::meta::nonstatic_data_members_of(type, ctx))
-        if (!is_sendable_type(std::meta::remove_cv(std::meta::type_of(m))))
+    for (info member : nonstatic_data_members_of(type, context))
+        if (!is_sendable_type(remove_cv(type_of(member))))
             return false;
 
     return true;
@@ -90,7 +92,7 @@ inline consteval bool default_is_sendable(std::meta::info type) {
 
 }
 
-#include <threadsafe/containers.h>
-#include <threadsafe/smart_pointers.h>
-#include <threadsafe/synchronizable.h>
-#include <threadsafe/vocabulary.h>
+#include <threadsafe/details/containers.h>
+#include <threadsafe/details/smart_pointers.h>
+#include <threadsafe/details/synchronizable.h>
+#include <threadsafe/details/vocabulary.h>

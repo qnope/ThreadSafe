@@ -1,4 +1,4 @@
-#include <threadsafe/synchronized_value.h>
+#include <threadsafe/threadsafe.h>
 
 #include <concepts>
 #include <functional>
@@ -7,8 +7,6 @@
 #include <shared_mutex>
 #include <string>
 #include <utility>
-
-#include <threadsafe/asynchronous_task_launcher.h>
 
 namespace {
 struct NonSendable {

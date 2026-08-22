@@ -11,8 +11,8 @@
 #include <unordered_set>
 #include <vector>
 
-#include <threadsafe/lifetime_aware.h>
-#include <threadsafe/sendable.h>
+#include <threadsafe/details/lifetime_aware.h>
+#include <threadsafe/details/sendable.h>
 
 namespace threadsafe {
 

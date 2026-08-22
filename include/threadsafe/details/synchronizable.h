@@ -5,8 +5,8 @@
 #include <meta>
 #include <type_traits>
 
-#include <threadsafe/sendable.h>
-#include <threadsafe/synchronizable_base.h>
+#include <threadsafe/details/sendable.h>
+#include <threadsafe/details/synchronizable_base.h>
 
 namespace threadsafe {
 
@@ -33,13 +33,8 @@ template <class T>
 constexpr bool is_synchronizable<const T> =
     detail::default_is_const_synchronizable(^^T);
 
-// Owned storage follows its element, like the is_sendable array rule; the
-// const forms exist because <const T> and <T[N]> would otherwise be ambiguous
-// for a const array.
-template <class T, std::size_t N>
-constexpr bool is_synchronizable<T[N]> = is_synchronizable<T>;
-template <class T>
-constexpr bool is_synchronizable<T[]> = is_synchronizable<T>;
+// The const array forms exist because <const T> above matches a const array
+// and would otherwise tie with the <T[N]> rule of synchronizable_base.h.
 template <class T, std::size_t N>
 constexpr bool is_synchronizable<const T[N]> = is_synchronizable<const T>;
 template <class T>
@@ -48,8 +43,10 @@ constexpr bool is_synchronizable<const T[]> = is_synchronizable<const T>;
 namespace detail {
 
 inline consteval bool default_is_const_synchronizable(std::meta::info type) {
-    const auto ctx = std::meta::access_context::unchecked();
-    type = std::meta::remove_cv(type);
+    using namespace std::meta;
+
+    const auto context = access_context::unchecked();
+    type = remove_cv(type);
 
     if (is_synchronizable_type(type))
         return true;
@@ -57,23 +54,22 @@ inline consteval bool default_is_const_synchronizable(std::meta::info type) {
     // A pointee's const is a view restriction, not an object property — the
     // object may be written through another alias, so the full trait is asked.
     // A function pointee is code, and code is synchronizable.
-    if (std::meta::is_pointer_type(type))
-        return is_synchronizable_type(
-            std::meta::remove_cv(std::meta::remove_pointer(type)));
+    if (is_pointer_type(type))
+        return is_synchronizable_type(remove_cv(remove_pointer(type)));
 
-    if (std::meta::is_scalar_type(type))
+    if (is_scalar_type(type))
         return true;
 
-    if (std::meta::is_void_type(type))
+    if (is_void_type(type))
         return false;
 
-    if (!std::meta::is_class_type(type) && !std::meta::is_union_type(type))
-        throw std::meta::exception(
+    if (!is_class_type(type) && !is_union_type(type))
+        throw exception(
             u8"is_synchronizable<const T> supports only scalar, class and "
             u8"union types", type);
 
-    if (!std::meta::is_complete_type(type))
-        throw std::meta::exception(
+    if (!is_complete_type(type))
+        throw exception(
             u8"is_synchronizable<const T> requires a complete type — "
             u8"specialize is_synchronizable for types holding a pointer to an "
             u8"incomplete type (the pimpl idiom)", type);
@@ -82,21 +78,20 @@ inline consteval bool default_is_const_synchronizable(std::meta::info type) {
         || has_unreflectable_state(type))
         return false;
 
-    for (std::meta::info base : std::meta::bases_of(type, ctx))
-        if (!is_synchronizable_type(
-                std::meta::add_const(std::meta::type_of(base))))
+    for (info base : bases_of(type, context))
+        if (!is_synchronizable_type(add_const(type_of(base))))
             return false;
 
-    for (std::meta::info member : std::meta::nonstatic_data_members_of(type, ctx)) {
-        const auto member_type = std::meta::type_of(member);
-        if (std::meta::is_mutable_member(member)) {
-            if (!is_synchronizable_type(std::meta::remove_cv(member_type)))
+    for (info member : nonstatic_data_members_of(type, context)) {
+        const auto member_type = type_of(member);
+        if (is_mutable_member(member)) {
+            if (!is_synchronizable_type(remove_cv(member_type)))
                 return false;
-        } else if (std::meta::is_reference_type(member_type)) {
-            if (!is_synchronizable_type(std::meta::remove_cv(
-                    std::meta::remove_reference(member_type))))
+        } else if (is_reference_type(member_type)) {
+            if (!is_synchronizable_type(
+                    remove_cv(remove_reference(member_type))))
                 return false;
-        } else if (!is_synchronizable_type(std::meta::add_const(member_type))) {
+        } else if (!is_synchronizable_type(add_const(member_type))) {
             return false;
         }
     }

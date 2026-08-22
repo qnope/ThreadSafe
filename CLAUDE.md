@@ -4,6 +4,9 @@ A C++26 library for writing thread-safe code, with safety checked entirely at co
 
 Each time user asks something, challenge the need.
 
+**Always** use explicit name for variables.
+**Avoid** useless comments.
+
 ## Toolchain & Build
 
 - **Compiler**: GCC 16 (required — the library uses C++26 reflection).
@@ -35,7 +38,7 @@ True if a `const T` may be read from multiple threads at the same time. `is_sync
 - a reference → `is_synchronizable<remove_const_t<referent>>` in full.
 - otherwise → `is_synchronizable<const M>`, recursively.
 
-**Const behind an indirection is never trusted**: a `const T*`, `shared_ptr<const T>`, `weak_ptr<const T>`, `reference_wrapper<const T>` or `const T&` member may have been created from a non-const access, so the object can still be written through another alias — those forms ask the full trait of the `remove_const`'d pointee. By-value const *is* trusted: the consumers below construct their `T` in place, so its by-value subobjects are alias-free. `unique_ptr<const T>` sides with by-value — owned storage, the same alias-free assumption its `is_sendable` rule makes. Non-pointer scalars are true; arrays follow their element (`is_synchronizable<T[N]>` = `is_synchronizable<T>`, with dedicated `const T[N]` forms because `<const T>` matches a const array and would tie with `<T[N]>`).
+**Const behind an indirection is never trusted**: a `const T*`, `shared_ptr<const T>`, `weak_ptr<const T>`, `reference_wrapper<const T>` or `const T&` member may have been created from a non-const access, so the object can still be written through another alias — those forms ask the full trait of the `remove_const`'d pointee. By-value const *is* trusted: the consumers below construct their `T` in place, so its by-value subobjects are alias-free. `unique_ptr<const T>` sides with by-value — owned storage, the same alias-free assumption its `is_sendable` rule makes. Non-pointer scalars are true; arrays follow their element (`is_synchronizable<T[N]>` = `is_synchronizable<T>`, which lives in `synchronizable_base.h` next to the primary template since it is pure forwarding and composes with any answer `T` has, the macro's included; the dedicated `const T[N]` forms stay in `synchronizable.h` because they only exist to break the tie `<const T>` would otherwise have with `<T[N]>` on a const array).
 
 Every owning std type needs an explicit const rule — the same obligation `is_lifetime_aware` has; the rules in `containers.h`, `vocabulary.h` and `smart_pointers.h` encode [res.on.data.races] per container: `is_synchronizable<const std::vector<T, A>>` = `is_synchronizable<const T> && is_synchronizable<const A>`, and so on. The vocabulary types need theirs only because their constructor templates block the structural default; empty policies (`std::less`, `std::hash`, `std::equal_to`) pass the default and need none.
 
@@ -99,7 +102,9 @@ The type is not synchronizable — `as_mutable()` rebinds the handle, so one obj
 
 ### Header structure
 
-The traits are variable templates, so their value is fixed at the point of instantiation. A TU that saw only *some* specializations would compute a different answer for the same type than one that saw them all — silently, and IFNDR across TUs. Each trait header therefore pulls in the full specialization set at its bottom; `tests/test_include_isolation.cpp` pins this. The `const T` machinery lives in `synchronizable.h`, not `synchronizable_base.h`: `sendable.h` top-includes the base header before declaring `is_sendable`, so the base header can never bottom-include the specialization set. A full specialization written in a header must be `inline`, or every TU emits its own definition and the link fails — and so must a non-template function defined in one, which the `default_is_*` and `is_*_type` functions now are.
+`include/threadsafe/threadsafe.h` is the only public header; every other header lives in `include/threadsafe/details/` and is included through it. Tests include `<threadsafe/threadsafe.h>`, except `test_include_isolation.cpp`, which includes a detail header directly because pinning that isolation property *is* its job.
+
+The traits are variable templates, so their value is fixed at the point of instantiation. A TU that saw only *some* specializations would compute a different answer for the same type than one that saw them all — silently, and IFNDR across TUs. Each trait header therefore pulls in the full specialization set at its bottom; `tests/test_include_isolation.cpp` pins this. The `const T` machinery lives in `synchronizable.h`, not `synchronizable_base.h` (the plain array rules do live in the base header — see above): `sendable.h` top-includes the base header before declaring `is_sendable`, so the base header can never bottom-include the specialization set. A full specialization written in a header must be `inline`, or every TU emits its own definition and the link fails — and so must a non-template function defined in one, which the `default_is_*` and `is_*_type` functions now are.
 
 ### The info-level face of the traits
 

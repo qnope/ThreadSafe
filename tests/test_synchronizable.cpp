@@ -1,4 +1,4 @@
-#include <threadsafe/synchronizable.h>
+#include <threadsafe/threadsafe.h>
 
 #include <atomic>
 

@@ -1,11 +1,11 @@
 #pragma once
 
-#include <threadsafe/synchronizable.h>
-#include <threadsafe/sendable.h>
-#include <threadsafe/containers.h>
-#include <threadsafe/smart_pointers.h>
-#include <threadsafe/vocabulary.h>
-#include <threadsafe/lifetime_aware.h>
-#include <threadsafe/asynchronous_task_launcher.h>
-#include <threadsafe/synchronized_value.h>
-#include <threadsafe/copy_on_write.h>
+#include <threadsafe/details/synchronizable.h>
+#include <threadsafe/details/sendable.h>
+#include <threadsafe/details/containers.h>
+#include <threadsafe/details/smart_pointers.h>
+#include <threadsafe/details/vocabulary.h>
+#include <threadsafe/details/lifetime_aware.h>
+#include <threadsafe/details/asynchronous_task_launcher.h>
+#include <threadsafe/details/synchronized_value.h>
+#include <threadsafe/details/copy_on_write.h>

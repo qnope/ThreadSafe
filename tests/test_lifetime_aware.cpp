@@ -1,4 +1,4 @@
-#include <threadsafe/lifetime_aware.h>
+#include <threadsafe/threadsafe.h>
 
 #include <memory>
 #include <ranges>

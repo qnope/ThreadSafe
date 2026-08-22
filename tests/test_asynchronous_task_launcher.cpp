@@ -1,11 +1,8 @@
-#include <threadsafe/asynchronous_task_launcher.h>
+#include <threadsafe/threadsafe.h>
 
 #include <functional>
 #include <memory>
 #include <string>
-
-#include <threadsafe/containers.h>
-#include <threadsafe/smart_pointers.h>
 
 namespace {
 struct SyncCounter {

@@ -1,6 +1,4 @@
-#include <threadsafe/sendable.h>
-
-#include <threadsafe/synchronizable.h>
+#include <threadsafe/threadsafe.h>
 
 #include <concepts>
 #include <cstddef>
