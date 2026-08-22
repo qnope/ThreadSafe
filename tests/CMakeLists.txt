@@ -8,7 +8,7 @@ add_library(threadsafe_tests OBJECT
     test_lifetime_aware.cpp
     test_asynchronous_task_launcher.cpp
     test_soundness_regressions.cpp
-    test_include_isolation.cpp
+    test_deferred_specialization.cpp
     test_synchronized_value.cpp
     test_copy_on_write.cpp
 )

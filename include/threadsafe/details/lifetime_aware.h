@@ -89,7 +89,3 @@ inline consteval bool default_is_lifetime_aware(std::meta::info type) {
 }
 
 }
-
-#include <threadsafe/details/containers.h>
-#include <threadsafe/details/smart_pointers.h>
-#include <threadsafe/details/vocabulary.h>

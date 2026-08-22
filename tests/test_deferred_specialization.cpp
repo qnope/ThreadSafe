@@ -1,4 +1,4 @@
-#include <threadsafe/details/lifetime_aware.h>
+#include <threadsafe/threadsafe.h>
 
 #include <atomic>
 #include <memory>
