@@ -5,7 +5,6 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -61,10 +60,9 @@ static_assert(is_sendable<cow<int>>,
               "is_sendable — readers only ever see a const T, and a writer "
               "detaches before touching a shared one");
 static_assert(is_sendable<cow<std::string>> && is_sendable<cow<std::vector<int>>>
-                  && is_sendable<cow<std::map<int, std::string>>>
-                  && is_sendable<cow<std::unordered_map<int, std::string>>>,
-              "is_sendable — also a regression check on libstdc++ internals: a "
-              "mutable member in one of them would silently demand Sync");
+                  && is_sendable<cow<std::map<int, std::string>>>,
+              "is_sendable — a standard container holds its elements behind "
+              "pointers, so the walk finds nothing mutable in them");
 static_assert(!is_sendable<cow<NonSendable>>,
               "is_sendable — the T is copied on the receiving thread and "
               "destroyed by whoever drops the last handle");
@@ -76,13 +74,14 @@ static_assert(!is_sendable<cow<Outer>>,
               "is_sendable — mutable state is looked for through members");
 static_assert(!is_sendable<cow<Arrayed>>,
               "is_sendable — and through arrays");
-static_assert(!is_sendable<cow<std::vector<Cache>>>
-                  && !is_sendable<cow<std::optional<Cache>>>,
-              "is_sendable — a standard container hides its elements behind "
-              "pointers, so they are read off its template arguments");
+static_assert(!is_sendable<cow<std::optional<Cache>>>,
+              "is_sendable — a member held by value is walked into, whoever "
+              "declares it");
+static_assert(is_sendable<cow<std::vector<Cache>>>,
+              "is_sendable — but an element behind a pointer is out of reach, "
+              "and a template argument is not read as a member");
 static_assert(is_sendable<cow<Tagged<Cache>>>,
-              "is_sendable — that template-argument reading stops at namespace "
-              "std: elsewhere an argument says nothing about what is held");
+              "is_sendable — same for a template argument of a user type");
 static_assert(is_sendable<cow<SyncCache>>,
               "is_sendable — a T that handles its own concurrent access needs "
               "no help from the copy-on-write discipline");

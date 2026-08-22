@@ -31,18 +31,6 @@ inline consteval bool has_mutable_state(std::meta::info type) {
         throw std::meta::exception(
             u8"has_mutable_state requires a complete type", type);
 
-    // [res.on.data.races]: a standard library const member function does not
-    // modify what other threads can reach, so those internals are race-free by
-    // fiat — reflecting them only reports implementation noise, never the
-    // element types, which are behind pointers. The template arguments are.
-    if (std::meta::parent_of(type) == ^^std) {
-        if (std::meta::has_template_arguments(type))
-            for (std::meta::info a : std::meta::template_arguments_of(type))
-                if (std::meta::is_type(a) && has_mutable_state(a))
-                    return true;
-        return false;
-    }
-
     for (std::meta::info b : std::meta::bases_of(type, ctx))
         if (has_mutable_state(std::meta::type_of(b)))
             return true;
