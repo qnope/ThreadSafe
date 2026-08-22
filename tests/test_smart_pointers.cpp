@@ -18,6 +18,9 @@ struct Tree {
 struct SharedNode {
     std::shared_ptr<SharedNode> next;
 };
+struct ImmutableInt {
+    const int value;
+};
 }
 
 template <>
@@ -51,6 +54,15 @@ static_assert(is_sendable<std::shared_ptr<SyncType>>,
               "is_sendable — a synchronizable referent may be shared across threads");
 static_assert(is_sendable<std::shared_ptr<const SyncType>>,
               "is_sendable — cv on the referent is stripped, like the T& rule");
+static_assert(!is_sendable<std::shared_ptr<const int>>,
+              "is_sendable — cv on the referent is stripped, so int is asked, "
+              "not const int: another handle may be a shared_ptr<int>");
+static_assert(is_synchronizable<const ImmutableInt> && !is_synchronizable<ImmutableInt>,
+              "is_synchronizable — a const-member struct is read-safe through "
+              "const, which says nothing about the unqualified type");
+static_assert(!is_sendable<std::shared_ptr<ImmutableInt>>,
+              "is_sendable — burying the const in a member changes nothing: "
+              "the rule asks the full trait of the pointee, never <const T>");
 static_assert(is_sendable<std::shared_ptr<SyncType[]>>,
               "is_sendable — the array form follows the element type");
 static_assert(is_sendable<std::weak_ptr<SyncType>>,
