@@ -11,5 +11,6 @@ add_library(threadsafe_tests OBJECT
     test_deferred_specialization.cpp
     test_synchronized_value.cpp
     test_copy_on_write.cpp
+    test_diagnostics.cpp
 )
 target_link_libraries(threadsafe_tests PRIVATE ThreadSafe::threadsafe)

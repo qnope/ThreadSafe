@@ -1,9 +1,43 @@
 #pragma once
 
 #include <meta>
+#include <string>
+#include <string_view>
 #include <type_traits>
 
 namespace threadsafe::detail {
+
+inline consteval std::u8string type_name(std::meta::info type) {
+    return std::u8string(std::meta::u8display_string_of(type));
+}
+
+inline consteval std::u8string member_name(std::meta::info member) {
+    if (std::meta::has_identifier(member))
+        return std::u8string(std::meta::u8identifier_of(member));
+    return u8"<unnamed>";
+}
+
+// The subject of a rejection — a data member, a base, or the type itself —
+// spelled the way the message opens on it.
+inline consteval std::u8string describe(std::meta::info subject) {
+    if (std::meta::is_nonstatic_data_member(subject))
+        return u8"member `" + member_name(subject) + u8"` of type "
+             + type_name(std::meta::type_of(subject));
+
+    if (std::meta::is_base(subject))
+        return u8"base class " + type_name(std::meta::type_of(subject));
+
+    return type_name(subject);
+}
+
+// The reason continues the sentence the subject opens: reject(member, u8"is not
+// sendable") reads as "member `borrowed` of type int * is not sendable".
+[[noreturn]] inline consteval void reject(std::meta::info subject,
+                                          std::u8string_view reason) {
+    throw std::meta::exception(describe(subject) + u8" "
+                                  + std::u8string(reason),
+                              subject);
+}
 
 inline consteval bool trait_value(std::meta::info trait, std::meta::info type) {
     return std::meta::extract<bool>(std::meta::substitute(trait, {type}));

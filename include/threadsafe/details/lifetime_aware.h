@@ -12,6 +12,7 @@
 namespace threadsafe {
 
 namespace detail {
+consteval void diagnose_default_is_lifetime_aware(std::meta::info type);
 consteval bool default_is_lifetime_aware(std::meta::info type);
 }
 
@@ -53,9 +54,26 @@ inline consteval bool is_lifetime_aware_type(std::meta::info type) {
     return detail::trait_value(^^is_lifetime_aware_v, type);
 }
 
+// Same question as `static_assert(is_lifetime_aware_v<T>)`, but a failure names
+// the subobject responsible instead of printing a bare false.
+template <class T>
+consteval void assert_lifetime_aware() {
+    if (is_lifetime_aware_v<T>)
+        return;
+
+    detail::diagnose_default_is_lifetime_aware(^^T);
+
+    throw std::meta::exception(
+        u8"is_lifetime_aware is specialized to false for this type", ^^T);
+}
+
 namespace detail {
 
-inline consteval bool default_is_lifetime_aware(std::meta::info type) {
+// The trait itself, phrased so that "no" carries its reason. Returning means
+// yes; a std::meta::exception carries the reason it is no — default_is_lifetime_aware
+// catches it to answer false, while assert_* lets it escape so the reason
+// becomes the diagnostic.
+inline consteval void diagnose_default_is_lifetime_aware(std::meta::info type) {
     using namespace std::meta;
 
     const auto context = access_context::unchecked();
@@ -63,31 +81,61 @@ inline consteval bool default_is_lifetime_aware(std::meta::info type) {
 
     // A cv-qualified type reaches the primary template even when its
     // unqualified form has a specialization; forward so both agree.
-    if (unqualified != type)
-        return is_lifetime_aware_type(unqualified);
+    if (unqualified != type) {
+        if (!is_lifetime_aware_type(unqualified))
+            reject(type, u8"is not lifetime aware");
+        return;
+    }
+
+    // Reached only from assert_lifetime_aware: the trait itself answers these
+    // through its own specializations and never lands on the primary template.
+    if (is_reference_type(type)
+        || (is_pointer_type(type) && !is_function_type(remove_pointer(type))))
+        throw exception(
+            u8"a reference or a raw pointer borrows its referent instead of "
+            u8"keeping it alive — hold the object, or a std::shared_ptr to it",
+            type);
+
+    if (is_array_type(type)) {
+        if (!is_lifetime_aware_type(remove_cv(remove_extent(type))))
+            reject(type, u8"has an element type that is not lifetime aware");
+        return;
+    }
 
     if (trait_value(^^std::ranges::borrowed_range, type))
-        return false;
+        reject(type,
+               u8"is a borrowed range: a view over someone else's storage, it "
+               u8"does not keep its elements alive");
 
     if (!is_class_type(type) && !is_union_type(type))
-        return true;
+        return;
 
     if (!is_complete_type(type))
         throw exception(
             u8"is_lifetime_aware<T> requires a complete type", type);
 
     if (has_unreflectable_state(type))
-        return false;
+        reject(type,
+               u8"holds state reflection cannot see (a closure type with "
+               u8"captures); specialize is_lifetime_aware to state the "
+               u8"intent");
 
     for (info base : bases_of(type, context))
         if (!is_lifetime_aware_type(type_of(base)))
-            return false;
+            reject(base, u8"is not lifetime aware");
 
     for (info member : nonstatic_data_members_of(type, context))
         if (!is_lifetime_aware_type(remove_cv(type_of(member))))
-            return false;
+            reject(member, u8"is not lifetime aware");
+}
 
-    return true;
+inline consteval bool default_is_lifetime_aware(std::meta::info type) {
+    try {
+        diagnose_default_is_lifetime_aware(type);
+        return true;
+    } catch (const std::meta::exception &) {
+        return false;
+    }
 }
 
 }
