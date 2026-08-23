@@ -113,6 +113,5 @@ static_assert(std::same_as<sync_int::const_guard,
               "lock_shared — readers of a const-synchronizable T really share");
 static_assert(std::same_as<threadsafe::synchronized_value<Memo>::const_guard,
                            threadsafe::value_guard<
-                               const Memo, std::unique_lock<std::shared_mutex>>>,
-              "lock_shared — a T that writes under const serializes its readers "
-              "instead of racing them");
+                               const Memo, std::unique_lock<std::mutex>>>,
+              "Memo has mutable state, so a const-synchronizable T is not shared");

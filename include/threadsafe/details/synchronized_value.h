@@ -22,6 +22,9 @@ public:
     value_guard(const value_guard&) = delete;
     value_guard& operator=(const value_guard&) = delete;
 
+    // Don't capture by reference, because the lock is released when the guard is destroyed.
+    // Another solution could have been to use a callable taking a reference to the value,
+    //but that would have been more verbose and less convenient.
     T& operator*() const noexcept { return *value_; }
     T* operator->() const noexcept { return value_; }
 
@@ -43,13 +46,26 @@ class synchronized_value {
                   "boundaries — one thread at a time — so T must be sendable");
 
 public:
-    using guard = value_guard<T, std::unique_lock<std::shared_mutex>>;
+    static consteval auto get_mutex_type() {
+        if constexpr (is_synchronizable<const T>) {
+            return ^^std::shared_mutex;
+        } else {
+            return ^^std::mutex;
+        }
+    }
 
-    using const_guard =
-        value_guard<const T,
-                    std::conditional_t<is_synchronizable<const T>,
-                                       std::shared_lock<std::shared_mutex>,
-                                       std::unique_lock<std::shared_mutex>>>;
+    using mutex = [:get_mutex_type():];
+
+    static consteval auto get_const_guard_type() {
+        if constexpr (is_synchronizable<const T>) {
+            return ^^value_guard<const T, std::shared_lock<mutex>>;
+        } else {
+            return ^^value_guard<const T, std::unique_lock<mutex>>;
+        }
+    }
+
+    using guard = value_guard<T, std::unique_lock<mutex>>;
+    using const_guard = [:get_const_guard_type():];
 
     template <class... Args>
         requires std::constructible_from<T, Args...>

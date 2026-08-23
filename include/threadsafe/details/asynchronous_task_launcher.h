@@ -23,7 +23,7 @@ public:
               && (sendable<Args> && ...)
               && (lifetime_aware<Args> && ...)
     void launch_task(F f, Args... args) {
-        threads_.emplace_back(std::forward<F>(f), std::forward<Args>(args)...);
+        threads_.emplace_back(std::move(f), std::move(args)...);
     }
 
     // PRECONDITION: f must not outlive its own invocation — it must not store a
@@ -34,7 +34,7 @@ public:
         requires sendable<F>
               && (sendable<Args> && ...)
     void launch_scoped_task(F f, Args... args) {
-        std::jthread task{std::forward<F>(f), std::forward<Args>(args)...};
+        std::jthread task{std::move(f), std::move(args)...};
         task.join();
     }
 

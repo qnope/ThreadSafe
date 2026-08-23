@@ -85,16 +85,20 @@ inline consteval bool default_is_const_synchronizable(std::meta::info type) {
     for (info member : nonstatic_data_members_of(type, context)) {
         const auto member_type = type_of(member);
         if (is_mutable_member(member)) {
+            // mutable defeats const: this member is writable through a const&, so it
+            // needs the full (write-safe) trait, not the const one.
             if (!is_synchronizable_type(remove_cv(member_type)))
                 return false;
         } else if (is_reference_type(member_type)) {
-            if (!is_synchronizable_type(
-                    remove_cv(remove_reference(member_type))))
+            // a reference member's constness is unrelated to the referent's; the
+            // referent may be shared and mutated through another alias.
+            if (!is_synchronizable_type(remove_cvref(member_type)))
                 return false;
         } else if (!is_synchronizable_type(add_const(member_type))) {
-            return false;
+            return false; // ordinary value member: const propagates normally.
         }
     }
+    
     return true;
 }
 
