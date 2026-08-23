@@ -22,6 +22,14 @@ cmake --build build
 
 ## Architecture: the traits
 
+Each trait is a class template deriving from `std::bool_constant`, paired with a
+`_v` constexpr variable — the shape of `std::is_same` / `std::is_same_v`. Write
+`is_sendable_v<T>` to ask the question; specialize `is_sendable<T>` to answer it.
+
+The recursion reads the traits reflectively, through the `_v` variable
+(`detail::trait_value` substitutes `^^is_sendable_v`), so a specialization
+written in a user's translation unit still reaches it.
+
 ### `is_synchronizable<T>` (≈ Rust `Sync`)
 
 True if a `T` may be used from multiple threads at the same time.
@@ -35,8 +43,8 @@ True if a `const T` may be read from multiple threads at the same time.
 
 True if a `T` may be sent from one thread to another.
 
-- `is_sendable<T&>` = `is_sendable<T*>` = `is_synchronizable<T>` 
-- 
+- `is_sendable<T&>` = `is_sendable<T*>` = `is_synchronizable<T>`
+
 ### Callables — there is no separate trait
 
 Handing a callable to another thread *is* sending it, so `is_sendable` is the whole rule.

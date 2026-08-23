@@ -13,63 +13,67 @@
 namespace threadsafe {
 
 template <class A, class B>
-constexpr bool is_sendable<std::pair<A, B>> = is_sendable<A> && is_sendable<B>;
+struct is_sendable<std::pair<A, B>>
+    : std::bool_constant<is_sendable_v<A> && is_sendable_v<B>> {};
 template <class A, class B>
-constexpr bool is_lifetime_aware<std::pair<A, B>> =
-    is_lifetime_aware<A> && is_lifetime_aware<B>;
+struct is_lifetime_aware<std::pair<A, B>>
+    : std::bool_constant<is_lifetime_aware_v<A> && is_lifetime_aware_v<B>> {};
 
 template <class... Ts>
-constexpr bool is_sendable<std::tuple<Ts...>> = (is_sendable<Ts> && ...);
+struct is_sendable<std::tuple<Ts...>>
+    : std::bool_constant<(is_sendable_v<Ts> && ...)> {};
 template <class... Ts>
-constexpr bool is_lifetime_aware<std::tuple<Ts...>> =
-    (is_lifetime_aware<Ts> && ...);
+struct is_lifetime_aware<std::tuple<Ts...>>
+    : std::bool_constant<(is_lifetime_aware_v<Ts> && ...)> {};
 
 template <class T>
-constexpr bool is_sendable<std::optional<T>> = is_sendable<T>;
+struct is_sendable<std::optional<T>> : std::bool_constant<is_sendable_v<T>> {};
 template <class T>
-constexpr bool is_lifetime_aware<std::optional<T>> = is_lifetime_aware<T>;
+struct is_lifetime_aware<std::optional<T>> : is_lifetime_aware<T> {};
 
 template <class... Ts>
-constexpr bool is_sendable<std::variant<Ts...>> = (is_sendable<Ts> && ...);
+struct is_sendable<std::variant<Ts...>>
+    : std::bool_constant<(is_sendable_v<Ts> && ...)> {};
 template <class... Ts>
-constexpr bool is_lifetime_aware<std::variant<Ts...>> =
-    (is_lifetime_aware<Ts> && ...);
+struct is_lifetime_aware<std::variant<Ts...>>
+    : std::bool_constant<(is_lifetime_aware_v<Ts> && ...)> {};
 
 template <class T, std::size_t N>
-constexpr bool is_sendable<std::array<T, N>> = is_sendable<T>;
+struct is_sendable<std::array<T, N>> : std::bool_constant<is_sendable_v<T>> {};
 template <class T, std::size_t N>
-constexpr bool is_lifetime_aware<std::array<T, N>> = is_lifetime_aware<T>;
+struct is_lifetime_aware<std::array<T, N>> : is_lifetime_aware<T> {};
 
 // These need explicit const rules only because their constructor templates
 // block the structural default; the elements are held by value.
 template <class A, class B>
-constexpr bool is_synchronizable<const std::pair<A, B>> =
-    is_synchronizable<const A> && is_synchronizable<const B>;
+struct is_synchronizable<const std::pair<A, B>>
+    : std::bool_constant<is_synchronizable_v<const A>
+                         && is_synchronizable_v<const B>> {};
 
 template <class... Ts>
-constexpr bool is_synchronizable<const std::tuple<Ts...>> =
-    (is_synchronizable<const Ts> && ...);
+struct is_synchronizable<const std::tuple<Ts...>>
+    : std::bool_constant<(is_synchronizable_v<const Ts> && ...)> {};
 
 template <class T>
-constexpr bool is_synchronizable<const std::optional<T>> =
-    is_synchronizable<const T>;
+struct is_synchronizable<const std::optional<T>>
+    : is_synchronizable<const T> {};
 
 template <class... Ts>
-constexpr bool is_synchronizable<const std::variant<Ts...>> =
-    (is_synchronizable<const Ts> && ...);
+struct is_synchronizable<const std::variant<Ts...>>
+    : std::bool_constant<(is_synchronizable_v<const Ts> && ...)> {};
 
 template <class T, std::size_t N>
-constexpr bool is_synchronizable<const std::array<T, N>> =
-    is_synchronizable<const T>;
+struct is_synchronizable<const std::array<T, N>>
+    : is_synchronizable<const T> {};
 
 template <>
-inline constexpr bool is_synchronizable<std::stop_token> = true;
+struct is_synchronizable<std::stop_token> : std::true_type {};
 template <>
-inline constexpr bool is_synchronizable<std::stop_source> = true;
+struct is_synchronizable<std::stop_source> : std::true_type {};
 
 template <>
-inline constexpr bool is_lifetime_aware<std::stop_token> = true;
+struct is_lifetime_aware<std::stop_token> : std::true_type {};
 template <>
-inline constexpr bool is_lifetime_aware<std::stop_source> = true;
+struct is_lifetime_aware<std::stop_source> : std::true_type {};
 
 }

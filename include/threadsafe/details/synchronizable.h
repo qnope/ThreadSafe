@@ -14,10 +14,10 @@ template <class F>
 concept function_type = std::is_function_v<F>;
 
 template <function_type F>
-constexpr bool is_synchronizable<F> = true;
+struct is_synchronizable<F> : std::true_type {};
 
 template <class T>
-constexpr bool is_synchronizable<std::atomic<T>> = is_sendable<T>;
+struct is_synchronizable<std::atomic<T>> : is_sendable<T> {};
 
 namespace detail {
 consteval bool default_is_const_synchronizable(std::meta::info type);
@@ -30,15 +30,15 @@ consteval bool default_is_const_synchronizable(std::meta::info type);
 // full trait, and const behind an indirection is never trusted: the pointee
 // may have been reached through a non-const alias at origin.
 template <class T>
-constexpr bool is_synchronizable<const T> =
-    detail::default_is_const_synchronizable(^^T);
+struct is_synchronizable<const T>
+    : std::bool_constant<detail::default_is_const_synchronizable(^^T)> {};
 
 // The const array forms exist because <const T> above matches a const array
 // and would otherwise tie with the <T[N]> rule of synchronizable_base.h.
 template <class T, std::size_t N>
-constexpr bool is_synchronizable<const T[N]> = is_synchronizable<const T>;
+struct is_synchronizable<const T[N]> : is_synchronizable<const T> {};
 template <class T>
-constexpr bool is_synchronizable<const T[]> = is_synchronizable<const T>;
+struct is_synchronizable<const T[]> : is_synchronizable<const T> {};
 
 namespace detail {
 

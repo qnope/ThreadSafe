@@ -14,28 +14,31 @@ consteval bool default_is_sendable(std::meta::info type);
 }
 
 template <class T>
-constexpr bool is_sendable = detail::default_is_sendable(^^T);
+struct is_sendable : std::bool_constant<detail::default_is_sendable(^^T)> {};
 
 template <class T>
-constexpr bool is_sendable<T&> = is_synchronizable<std::remove_cv_t<T>>;
-template <class T>
-constexpr bool is_sendable<T&&> = is_synchronizable<std::remove_cv_t<T>>;
+constexpr bool is_sendable_v = is_sendable<T>::value;
 
 template <class T>
-constexpr bool is_sendable<T*> = is_synchronizable<std::remove_cv_t<T>>;
+struct is_sendable<T&> : is_synchronizable<std::remove_cv_t<T>> {};
+template <class T>
+struct is_sendable<T&&> : is_synchronizable<std::remove_cv_t<T>> {};
+
+template <class T>
+struct is_sendable<T*> : is_synchronizable<std::remove_cv_t<T>> {};
 
 template <class T, std::size_t N>
-constexpr bool is_sendable<T[N]> = is_sendable<std::remove_cv_t<T>>;
+struct is_sendable<T[N]> : is_sendable<std::remove_cv_t<T>> {};
 template <class T>
-constexpr bool is_sendable<T[]> = is_sendable<std::remove_cv_t<T>>;
+struct is_sendable<T[]> : is_sendable<std::remove_cv_t<T>> {};
 
 template <class T>
-concept sendable = is_sendable<T>;
+concept sendable = is_sendable_v<T>;
 
 // The info-level face of the trait, named after the predicates of <meta>. Same
-// answer as is_sendable<T>, for code written on the reflection side.
+// answer as is_sendable_v<T>, for code written on the reflection side.
 inline consteval bool is_sendable_type(std::meta::info type) {
-    return detail::trait_value(^^is_sendable, type);
+    return detail::trait_value(^^is_sendable_v, type);
 }
 
 namespace detail {

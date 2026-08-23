@@ -16,37 +16,41 @@ consteval bool default_is_lifetime_aware(std::meta::info type);
 }
 
 template <class T>
-constexpr bool is_lifetime_aware = detail::default_is_lifetime_aware(^^T);
+struct is_lifetime_aware
+    : std::bool_constant<detail::default_is_lifetime_aware(^^T)> {};
 
 template <class T>
-constexpr bool is_lifetime_aware<T&> = false;
+constexpr bool is_lifetime_aware_v = is_lifetime_aware<T>::value;
+
 template <class T>
-constexpr bool is_lifetime_aware<T&&> = false;
+struct is_lifetime_aware<T&> : std::false_type {};
 template <class T>
-constexpr bool is_lifetime_aware<T*> = false;
+struct is_lifetime_aware<T&&> : std::false_type {};
+template <class T>
+struct is_lifetime_aware<T*> : std::false_type {};
 
 template <class F>
     requires std::is_function_v<F>
-constexpr bool is_lifetime_aware<F*> = true;
+struct is_lifetime_aware<F*> : std::true_type {};
 
 template <class T, std::size_t N>
-constexpr bool is_lifetime_aware<T[N]> = is_lifetime_aware<std::remove_cv_t<T>>;
+struct is_lifetime_aware<T[N]> : is_lifetime_aware<std::remove_cv_t<T>> {};
 
 template <class T>
-constexpr bool is_lifetime_aware<std::reference_wrapper<T>> = false;
+struct is_lifetime_aware<std::reference_wrapper<T>> : std::false_type {};
 
 template <class T>
-constexpr bool is_lifetime_aware<std::shared_ptr<T>> = true;
+struct is_lifetime_aware<std::shared_ptr<T>> : std::true_type {};
 template <class T>
-constexpr bool is_lifetime_aware<std::weak_ptr<T>> = true;
+struct is_lifetime_aware<std::weak_ptr<T>> : std::true_type {};
 
 template <class T>
-concept lifetime_aware = is_lifetime_aware<T>;
+concept lifetime_aware = is_lifetime_aware_v<T>;
 
 // The info-level face of the trait, named after the predicates of <meta>. Same
-// answer as is_lifetime_aware<T>, for code written on the reflection side.
+// answer as is_lifetime_aware_v<T>, for code written on the reflection side.
 inline consteval bool is_lifetime_aware_type(std::meta::info type) {
-    return detail::trait_value(^^is_lifetime_aware, type);
+    return detail::trait_value(^^is_lifetime_aware_v, type);
 }
 
 namespace detail {

@@ -27,7 +27,7 @@ constexpr bool can_launch_scoped_task =
 }
 
 template <>
-constexpr bool threadsafe::is_synchronizable<SyncCounter> = true;
+struct threadsafe::is_synchronizable<SyncCounter> : std::true_type {};
 
 static_assert(can_launch_task<decltype([] {})>,
               "launch_task — a captureless lambda with no args is accepted");

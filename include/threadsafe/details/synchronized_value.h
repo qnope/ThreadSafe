@@ -47,7 +47,7 @@ class synchronized_value {
 
 public:
     static consteval auto get_mutex_type() {
-        if constexpr (is_synchronizable<const T>) {
+        if constexpr (is_synchronizable_v<const T>) {
             return ^^std::shared_mutex;
         } else {
             return ^^std::mutex;
@@ -57,7 +57,7 @@ public:
     using mutex = [:get_mutex_type():];
 
     static consteval auto get_const_guard_type() {
-        if constexpr (is_synchronizable<const T>) {
+        if constexpr (is_synchronizable_v<const T>) {
             return ^^value_guard<const T, std::shared_lock<mutex>>;
         } else {
             return ^^value_guard<const T, std::unique_lock<mutex>>;
@@ -96,14 +96,14 @@ private:
 };
 
 template <class T>
-constexpr bool is_synchronizable<synchronized_value<T>> = is_sendable<T>;
+struct is_synchronizable<synchronized_value<T>> : is_sendable<T> {};
 
 template <class T>
-constexpr bool is_lifetime_aware<synchronized_value<T>> = is_lifetime_aware<T>;
+struct is_lifetime_aware<synchronized_value<T>> : is_lifetime_aware<T> {};
 
 template <class T, class Lock>
-constexpr bool is_sendable<value_guard<T, Lock>> = false;
+struct is_sendable<value_guard<T, Lock>> : std::false_type {};
 template <class T, class Lock>
-constexpr bool is_lifetime_aware<value_guard<T, Lock>> = false;
+struct is_lifetime_aware<value_guard<T, Lock>> : std::false_type {};
 
 }

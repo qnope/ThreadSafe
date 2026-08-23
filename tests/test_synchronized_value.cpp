@@ -39,37 +39,37 @@ template <class T>
 constexpr bool can_lock_shared = requires(T v) { v.lock_shared(); };
 }
 
-using threadsafe::is_lifetime_aware;
-using threadsafe::is_sendable;
-using threadsafe::is_synchronizable;
+using threadsafe::is_lifetime_aware_v;
+using threadsafe::is_sendable_v;
+using threadsafe::is_synchronizable_v;
 
-static_assert(is_synchronizable<sync_int>,
+static_assert(is_synchronizable_v<sync_int>,
               "is_synchronizable — the mutex serializes access, so a sendable "
               "T may be held by several threads at once");
-static_assert(is_sendable<sync_int>,
+static_assert(is_sendable_v<sync_int>,
               "is_sendable — Sync implies Send in this library");
-static_assert(!is_synchronizable<threadsafe::synchronized_value<NonSendable>>,
+static_assert(!is_synchronizable_v<threadsafe::synchronized_value<NonSendable>>,
               "is_synchronizable — the T still crosses threads one at a time, "
               "so a non-sendable T is not rescued by the mutex");
 
-static_assert(is_lifetime_aware<threadsafe::synchronized_value<std::string>>,
+static_assert(is_lifetime_aware_v<threadsafe::synchronized_value<std::string>>,
               "is_lifetime_aware — the value is held by value; the mutex is "
               "not data and must not be recursed into");
-static_assert(!is_lifetime_aware<threadsafe::synchronized_value<int*>>,
+static_assert(!is_lifetime_aware_v<threadsafe::synchronized_value<int*>>,
               "is_lifetime_aware — ownership is transitive, a guarded borrow "
               "is still a borrow");
 
-static_assert(!is_sendable<sync_int::guard>,
+static_assert(!is_sendable_v<sync_int::guard>,
               "is_sendable — a unique_lock must be released by the thread that "
               "took it");
-static_assert(!is_sendable<sync_int::const_guard>);
-static_assert(!is_lifetime_aware<sync_int::guard>,
+static_assert(!is_sendable_v<sync_int::const_guard>);
+static_assert(!is_lifetime_aware_v<sync_int::guard>,
               "is_lifetime_aware — the guard borrows the value, it does not "
               "keep it alive");
-static_assert(!is_lifetime_aware<sync_int::const_guard>);
+static_assert(!is_lifetime_aware_v<sync_int::const_guard>);
 
-static_assert(is_sendable<std::shared_ptr<sync_int>>
-                  && is_lifetime_aware<std::shared_ptr<sync_int>>,
+static_assert(is_sendable_v<std::shared_ptr<sync_int>>
+                  && is_lifetime_aware_v<std::shared_ptr<sync_int>>,
               "a shared_ptr to a synchronized_value is the intended way to "
               "share a user type");
 static_assert(can_launch_task<decltype([](std::shared_ptr<sync_int>) {}),
@@ -115,9 +115,9 @@ static_assert(std::same_as<sync_int::const_guard,
 // A T whose const form is not synchronizable: `cached` is writable through a
 // const&, so concurrent readers of a const Memo would race. The wrapper does
 // not reject such a T, it downgrades the mutex to an exclusive one.
-static_assert(!is_synchronizable<const Memo>,
+static_assert(!is_synchronizable_v<const Memo>,
               "the premise of the block below: a mutable member defeats const");
-static_assert(is_sendable<Memo>,
+static_assert(is_sendable_v<Memo>,
               "one thread at a time is still fine, which is all the wrapper asks");
 
 static_assert(std::same_as<sync_memo::mutex, std::mutex>,
@@ -140,21 +140,21 @@ static_assert(
     std::same_as<decltype(*std::declval<const sync_memo::const_guard&>()),
                  const Memo&>);
 
-static_assert(is_synchronizable<sync_memo>,
+static_assert(is_synchronizable_v<sync_memo>,
               "the wrapper is the fix: a T that no const& could share safely "
               "is shareable once every access goes through the mutex");
-static_assert(is_synchronizable<const sync_memo>,
+static_assert(is_synchronizable_v<const sync_memo>,
               "const only removes lock(), and lock_shared() is already safe");
-static_assert(is_sendable<sync_memo>);
-static_assert(is_lifetime_aware<sync_memo>,
+static_assert(is_sendable_v<sync_memo>);
+static_assert(is_lifetime_aware_v<sync_memo>,
               "the value is held by value, mutable member or not");
 
-static_assert(!is_sendable<sync_memo::guard>
-                  && !is_sendable<sync_memo::const_guard>,
+static_assert(!is_sendable_v<sync_memo::guard>
+                  && !is_sendable_v<sync_memo::const_guard>,
               "a unique_lock must be released by the thread that took it — "
               "both guards hold one here");
-static_assert(!is_lifetime_aware<sync_memo::guard>
-                  && !is_lifetime_aware<sync_memo::const_guard>);
+static_assert(!is_lifetime_aware_v<sync_memo::guard>
+                  && !is_lifetime_aware_v<sync_memo::const_guard>);
 
 static_assert(can_launch_task<decltype([](std::shared_ptr<sync_memo>) {}),
                               std::shared_ptr<sync_memo>>,

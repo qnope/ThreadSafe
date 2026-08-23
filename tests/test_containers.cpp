@@ -41,102 +41,102 @@ struct MoveOnlyStrings {
 
 }
 
-using threadsafe::is_sendable;
-using threadsafe::is_synchronizable;
+using threadsafe::is_sendable_v;
+using threadsafe::is_synchronizable_v;
 
-static_assert(is_sendable<std::allocator<int>>,
+static_assert(is_sendable_v<std::allocator<int>>,
               "is_sendable — std::allocator is stateless, sending it is safe");
-static_assert(is_sendable<std::less<int>>,
+static_assert(is_sendable_v<std::less<int>>,
               "is_sendable — stateless comparators are sendable by default");
-static_assert(is_sendable<std::hash<int>>,
+static_assert(is_sendable_v<std::hash<int>>,
               "is_sendable — stateless hashers are sendable by default");
-static_assert(is_sendable<std::equal_to<int>>,
+static_assert(is_sendable_v<std::equal_to<int>>,
               "is_sendable — stateless equality functors are sendable by default");
 
-static_assert(is_sendable<std::vector<int>>,
+static_assert(is_sendable_v<std::vector<int>>,
               "is_sendable — a vector of sendable elements is sendable");
-static_assert(is_sendable<std::string>,
+static_assert(is_sendable_v<std::string>,
               "is_sendable — a string owns its characters");
-static_assert(is_sendable<std::u8string>,
+static_assert(is_sendable_v<std::u8string>,
               "is_sendable — basic_string covers every character type");
-static_assert(is_sendable<std::map<int, std::string>>,
+static_assert(is_sendable_v<std::map<int, std::string>>,
               "is_sendable — a map of sendable keys and values is sendable");
-static_assert(is_sendable<std::multimap<int, std::string>>,
+static_assert(is_sendable_v<std::multimap<int, std::string>>,
               "is_sendable — multimap follows the same rule as map");
-static_assert(is_sendable<std::set<int>>,
+static_assert(is_sendable_v<std::set<int>>,
               "is_sendable — a set of sendable keys is sendable");
-static_assert(is_sendable<std::multiset<int>>,
+static_assert(is_sendable_v<std::multiset<int>>,
               "is_sendable — multiset follows the same rule as set");
-static_assert(is_sendable<std::unordered_map<std::string, int>>,
+static_assert(is_sendable_v<std::unordered_map<std::string, int>>,
               "is_sendable — an unordered_map of sendable keys and values is sendable");
-static_assert(is_sendable<std::unordered_multimap<std::string, int>>,
+static_assert(is_sendable_v<std::unordered_multimap<std::string, int>>,
               "is_sendable — unordered_multimap follows the same rule as unordered_map");
-static_assert(is_sendable<std::unordered_set<int>>,
+static_assert(is_sendable_v<std::unordered_set<int>>,
               "is_sendable — an unordered_set of sendable keys is sendable");
-static_assert(is_sendable<std::unordered_multiset<int>>,
+static_assert(is_sendable_v<std::unordered_multiset<int>>,
               "is_sendable — unordered_multiset follows the same rule as unordered_set");
-static_assert(is_sendable<std::vector<std::map<int, std::string>>>,
+static_assert(is_sendable_v<std::vector<std::map<int, std::string>>>,
               "is_sendable — nested containers recurse through their elements");
-static_assert(is_sendable<MoveOnlyStrings>,
+static_assert(is_sendable_v<MoveOnlyStrings>,
               "is_sendable — a move-only class holding a vector<string> is "
               "sendable: deleted copy members do not block sendability");
 
-static_assert(!is_sendable<std::vector<UserCopyCtor>>,
+static_assert(!is_sendable_v<std::vector<UserCopyCtor>>,
               "is_sendable — a non-sendable element makes the container non-sendable");
-static_assert(!is_sendable<std::vector<int*>>,
+static_assert(!is_sendable_v<std::vector<int*>>,
               "is_sendable — sending a container of pointers shares the pointees");
-static_assert(!is_sendable<std::map<int, UserCopyCtor>>,
+static_assert(!is_sendable_v<std::map<int, UserCopyCtor>>,
               "is_sendable — a non-sendable mapped type makes the map non-sendable");
 
-static_assert(!is_sendable<std::vector<int, BadAlloc>>,
+static_assert(!is_sendable_v<std::vector<int, BadAlloc>>,
               "is_sendable — the allocator is stored, so it must be sendable too");
-static_assert(!is_sendable<std::set<int, BadCompare>>,
+static_assert(!is_sendable_v<std::set<int, BadCompare>>,
               "is_sendable — the comparator is stored, so it must be sendable too");
-static_assert(!is_sendable<std::unordered_set<int, BadHash>>,
+static_assert(!is_sendable_v<std::unordered_set<int, BadHash>>,
               "is_sendable — the hasher is stored, so it must be sendable too");
-static_assert(!is_sendable<std::unordered_set<int, std::hash<int>, BadCompare>>,
+static_assert(!is_sendable_v<std::unordered_set<int, std::hash<int>, BadCompare>>,
               "is_sendable — the key_equal is stored, so it must be sendable too");
 
-static_assert(is_sendable<const std::vector<int>>,
+static_assert(is_sendable_v<const std::vector<int>>,
               "is_sendable — cv-qualified T forwards to the container specialization");
-static_assert(!is_sendable<std::vector<int>&>,
+static_assert(!is_sendable_v<std::vector<int>&>,
               "is_sendable — sending a reference shares the container, which is not synchronizable");
 
-static_assert(is_synchronizable<const std::vector<int>>
-                  && is_synchronizable<const std::string>
-                  && is_synchronizable<const std::deque<int>>
-                  && is_synchronizable<const std::list<int>>
-                  && is_synchronizable<const std::forward_list<int>>,
+static_assert(is_synchronizable_v<const std::vector<int>>
+                  && is_synchronizable_v<const std::string>
+                  && is_synchronizable_v<const std::deque<int>>
+                  && is_synchronizable_v<const std::list<int>>
+                  && is_synchronizable_v<const std::forward_list<int>>,
               "is_synchronizable — [res.on.data.races]: const member functions "
               "of a standard container may run concurrently");
-static_assert(is_synchronizable<const std::map<int, std::string>>
-                  && is_synchronizable<const std::multimap<int, std::string>>
-                  && is_synchronizable<const std::set<int>>
-                  && is_synchronizable<const std::multiset<int>>,
+static_assert(is_synchronizable_v<const std::map<int, std::string>>
+                  && is_synchronizable_v<const std::multimap<int, std::string>>
+                  && is_synchronizable_v<const std::set<int>>
+                  && is_synchronizable_v<const std::multiset<int>>,
               "is_synchronizable — and their stored policies are read too");
-static_assert(is_synchronizable<const std::unordered_map<int, std::string>>
-                  && is_synchronizable<const std::unordered_multimap<int, std::string>>
-                  && is_synchronizable<const std::unordered_set<int>>
-                  && is_synchronizable<const std::unordered_multiset<int>>,
+static_assert(is_synchronizable_v<const std::unordered_map<int, std::string>>
+                  && is_synchronizable_v<const std::unordered_multimap<int, std::string>>
+                  && is_synchronizable_v<const std::unordered_set<int>>
+                  && is_synchronizable_v<const std::unordered_multiset<int>>,
               "is_synchronizable — the explicit rule is what keeps libstdc++'s "
               "mutable rehash-policy internals out of the recursion");
-static_assert(!is_synchronizable<std::vector<int>>,
+static_assert(!is_synchronizable_v<std::vector<int>>,
               "is_synchronizable — without the const the container is writable");
-static_assert(!is_synchronizable<const std::vector<MutCache>>,
+static_assert(!is_synchronizable_v<const std::vector<MutCache>>,
               "is_synchronizable — a reader reaches the elements, so their "
               "const form must be read-safe too");
-static_assert(!is_synchronizable<const std::vector<int*>>
-                  && !is_synchronizable<const std::vector<const int*>>,
+static_assert(!is_synchronizable_v<const std::vector<int*>>
+                  && !is_synchronizable_v<const std::vector<const int*>>,
               "is_synchronizable — an element that borrows gives readers a "
               "write path, and a pointed-to const proves nothing");
-static_assert(is_synchronizable<const std::allocator<int>>,
+static_assert(is_synchronizable_v<const std::allocator<int>>,
               "is_synchronizable — stateless, ruled explicitly because its "
               "converting-constructor template blocks the structural default");
-static_assert(is_synchronizable<const std::less<int>>
-                  && is_synchronizable<const std::hash<int>>
-                  && is_synchronizable<const std::equal_to<int>>,
+static_assert(is_synchronizable_v<const std::less<int>>
+                  && is_synchronizable_v<const std::hash<int>>
+                  && is_synchronizable_v<const std::equal_to<int>>,
               "is_synchronizable — empty policies with no constructor templates "
               "pass the structural default, no rule needed");
-static_assert(!is_synchronizable<const std::set<int, BadCompare>>,
+static_assert(!is_synchronizable_v<const std::set<int, BadCompare>>,
               "is_synchronizable — a stored policy with a user-provided copy "
               "fails the structural guard");

@@ -41,17 +41,18 @@ private:
 namespace detail {
 template <class T>
 consteval bool cow_is_sendable() {
-    if constexpr (is_sendable<T>)
-        return is_synchronizable<const T>;
+    if constexpr (is_sendable_v<T>)
+        return is_synchronizable_v<const T>;
     else
         return false;
 }
 }
 
 template <class T>
-constexpr bool is_sendable<copy_on_write<T>> = detail::cow_is_sendable<T>();
+struct is_sendable<copy_on_write<T>>
+    : std::bool_constant<detail::cow_is_sendable<T>()> {};
 
 template <class T>
-constexpr bool is_lifetime_aware<copy_on_write<T>> = is_lifetime_aware<T>;
+struct is_lifetime_aware<copy_on_write<T>> : is_lifetime_aware<T> {};
 
 }
