@@ -25,8 +25,12 @@ public:
     // Don't capture by reference, because the lock is released when the guard is destroyed.
     // Another solution could have been to use a callable taking a reference to the value,
     //but that would have been more verbose and less convenient.
-    T& operator*() const noexcept { return *value_; }
-    T* operator->() const noexcept { return value_; }
+
+    T& operator*() && noexcept = delete("a temporary guard is destroyed at the semicolon, so it cannot hand out a reference");
+    T* operator->() && noexcept = delete("a temporary guard is destroyed at the semicolon, so it cannot hand out a reference");
+
+    T& operator*() const& noexcept { return *value_; }
+    T* operator->() const& noexcept { return value_; }
 
 private:
     template <class>
