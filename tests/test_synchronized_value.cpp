@@ -22,10 +22,7 @@ using sync_int = threadsafe::synchronized_value<int>;
 using sync_memo = threadsafe::synchronized_value<Memo>;
 
 template <class F, class... Args>
-constexpr bool can_launch_task =
-    requires(threadsafe::asynchronous_task_launcher l, F f, Args... args) {
-        l.launch_task(f, args...);
-    };
+constexpr bool can_launch_task = threadsafe::launchable_task<F, Args...>;
 
 template <class F, class... Args>
 constexpr bool can_launch_scoped_task =

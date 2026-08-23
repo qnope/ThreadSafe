@@ -51,10 +51,7 @@ struct Tagged {
 };
 
 template <class F, class... Args>
-constexpr bool can_launch_task =
-    requires(threadsafe::asynchronous_task_launcher l, F f, Args... args) {
-        l.launch_task(f, args...);
-    };
+constexpr bool can_launch_task = threadsafe::launchable_task<F, Args...>;
 
 template <class C>
 constexpr bool can_detach = requires(C c) { c.as_mutable(); };

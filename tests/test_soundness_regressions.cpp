@@ -67,10 +67,7 @@ void free_function() {}
 using CapturesReference = decltype(borrow(std::declval<std::string&>()));
 
 template <class F, class... Args>
-constexpr bool can_launch_task =
-    requires(threadsafe::asynchronous_task_launcher l, F f, Args... args) {
-        l.launch_task(f, args...);
-    };
+constexpr bool can_launch_task = threadsafe::launchable_task<F, Args...>;
 
 }
 
