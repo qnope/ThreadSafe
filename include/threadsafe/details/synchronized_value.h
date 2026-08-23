@@ -32,7 +32,7 @@ private:
     template <class>
     friend class synchronized_value;
 
-    value_guard(std::shared_mutex& mutex, T& value)
+    value_guard(typename Lock::mutex_type& mutex, T& value)
         : lock_(mutex), value_(&value) {}
 
     Lock lock_;
@@ -91,7 +91,7 @@ public:
     }
 
 private:
-    mutable std::shared_mutex mutex_;
+    mutable mutex mutex_;
     T value_;
 };
 
