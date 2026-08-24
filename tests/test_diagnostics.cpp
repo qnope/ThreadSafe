@@ -63,4 +63,19 @@ static_assert(!threadsafe::is_sendable_v<Borrowing>);
 static_assert(!threadsafe::is_synchronizable_v<const Borrowing>);
 static_assert(!threadsafe::is_lifetime_aware_v<Borrowing>);
 
+// Nesting is where the walk now descends to name the root cause. The trait must
+// still answer a plain false: the path that assert_* carries is what turns the
+// descent on, and the trait never seeds one.
+struct BorrowingMiddle {
+    Borrowing inner;
+};
+
+struct BorrowingOuter {
+    BorrowingMiddle middle;
+};
+
+static_assert(!threadsafe::is_sendable_v<BorrowingOuter>);
+static_assert(!threadsafe::is_synchronizable_v<const BorrowingOuter>);
+static_assert(!threadsafe::is_lifetime_aware_v<BorrowingOuter>);
+
 }

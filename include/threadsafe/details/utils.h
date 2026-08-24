@@ -30,13 +30,45 @@ inline consteval std::u8string describe(std::meta::info subject) {
     return type_name(subject);
 }
 
+// One hop of the walk down to the culprit, named the way the user wrote it: the
+// member or the base, with the type it stands for.
+inline consteval std::u8string path_step(std::meta::info subject) {
+    if (std::meta::is_nonstatic_data_member(subject))
+        return u8"::" + member_name(subject) + u8" ("
+             + type_name(std::meta::type_of(subject)) + u8")";
+
+    if (std::meta::is_base(subject))
+        return u8"::(base " + type_name(std::meta::type_of(subject)) + u8")";
+
+    // The subject is the type itself — a cv-qualified spelling, or an array of
+    // the type walked next. The same object under another name: no step.
+    return {};
+}
+
 // The reason continues the sentence the subject opens: reject(member, u8"is not
 // sendable") reads as "member `borrowed` of type int * is not sendable".
+//
+// A path opens that sentence instead — its last step already names the subject,
+// and it names every step taken to reach it: "Error::ptr (IntPtr)::ptr (int *)
+// is not sendable".
 [[noreturn]] inline consteval void reject(std::meta::info subject,
-                                          std::u8string_view reason) {
-    throw std::meta::exception(describe(subject) + u8" "
-                                  + std::u8string(reason),
-                              subject);
+                                          std::u8string_view reason,
+                                          std::u8string_view path = {}) {
+    throw std::meta::exception(
+        (path.empty() ? describe(subject) : std::u8string(path)) + u8" "
+            + std::u8string(reason),
+        subject);
+}
+
+// Reject a subobject the path has not stepped onto yet, on a reason that is
+// terminal — nothing deeper to walk, so the path stops here.
+[[noreturn]] inline consteval void reject_at(std::meta::info subject,
+                                             std::u8string_view reason,
+                                             const std::u8string &path) {
+    if (path.empty())
+        reject(subject, reason);
+
+    reject(subject, reason, path + path_step(subject));
 }
 
 inline consteval bool trait_value(std::meta::info trait, std::meta::info type) {

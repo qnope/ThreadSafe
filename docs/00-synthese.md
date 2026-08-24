@@ -167,7 +167,7 @@ l'essentiel de la bibliothèque standard, et les listes explicites la rattrapent
 | [01 — Robustesse des traits](./01-robustesse-des-traits.md) | `is_synchronizable<T>`, `<const T>`, `is_sendable`, `is_lifetime_aware` |
 | [02 — Robustesse des helpers](./02-robustesse-des-helpers.md) | `copy_on_write`, `synchronized_value`, `asynchronous_task_launcher` |
 | [03 — Couverture de tests](./03-couverture-de-tests.md) | test par mutation, 5 survivants, deux fichiers de test proposés |
-| [04 — Diagnostics](./04-diagnostics.md) | la chaîne de causes s'arrête au premier maillon |
+| [04 — Diagnostics](./04-diagnostics.md) | la chaîne de causes remonte jusqu'à la racine, sans coûter au trait |
 | [05 — Simplicité](./05-simplicite.md) | valeur pédagogique, commentaires manquants, répétition de `containers.h` |
 | [06 — Performance de compilation](./06-performance-compilation.md) | où va réellement le temps, et le découpage vérifié |
 | [07 — Performance d'exécution](./07-performance-execution.md) | les helpers sont gratuits, chiffres à l'appui |
