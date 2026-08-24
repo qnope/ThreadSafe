@@ -1,0 +1,100 @@
+#include <threadsafe/threadsafe.h>
+using namespace threadsafe;
+struct Level0 { int value; };
+struct Level1 {
+    Level0 member_0;
+    Level0 member_1;
+    Level0 member_2;
+    Level0 member_3;
+    Level0 member_4;
+    Level0 member_5;
+    Level0 member_6;
+    Level0 member_7;
+    Level0 member_8;
+    Level0 member_9;
+};
+struct Level2 {
+    Level1 member_0;
+    Level1 member_1;
+    Level1 member_2;
+    Level1 member_3;
+    Level1 member_4;
+    Level1 member_5;
+    Level1 member_6;
+    Level1 member_7;
+    Level1 member_8;
+    Level1 member_9;
+};
+struct Level3 {
+    Level2 member_0;
+    Level2 member_1;
+    Level2 member_2;
+    Level2 member_3;
+    Level2 member_4;
+    Level2 member_5;
+    Level2 member_6;
+    Level2 member_7;
+    Level2 member_8;
+    Level2 member_9;
+};
+struct Level4 {
+    Level3 member_0;
+    Level3 member_1;
+    Level3 member_2;
+    Level3 member_3;
+    Level3 member_4;
+    Level3 member_5;
+    Level3 member_6;
+    Level3 member_7;
+    Level3 member_8;
+    Level3 member_9;
+};
+struct Level5 {
+    Level4 member_0;
+    Level4 member_1;
+    Level4 member_2;
+    Level4 member_3;
+    Level4 member_4;
+    Level4 member_5;
+    Level4 member_6;
+    Level4 member_7;
+    Level4 member_8;
+    Level4 member_9;
+};
+struct Level6 {
+    Level5 member_0;
+    Level5 member_1;
+    Level5 member_2;
+    Level5 member_3;
+    Level5 member_4;
+    Level5 member_5;
+    Level5 member_6;
+    Level5 member_7;
+    Level5 member_8;
+    Level5 member_9;
+};
+struct Level7 {
+    Level6 member_0;
+    Level6 member_1;
+    Level6 member_2;
+    Level6 member_3;
+    Level6 member_4;
+    Level6 member_5;
+    Level6 member_6;
+    Level6 member_7;
+    Level6 member_8;
+    Level6 member_9;
+};
+struct Level8 {
+    Level7 member_0;
+    Level7 member_1;
+    Level7 member_2;
+    Level7 member_3;
+    Level7 member_4;
+    Level7 member_5;
+    Level7 member_6;
+    Level7 member_7;
+    Level7 member_8;
+    Level7 member_9;
+};
+static_assert(is_sendable_v<Level8>);
