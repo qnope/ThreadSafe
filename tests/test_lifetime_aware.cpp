@@ -42,6 +42,15 @@ static_assert(!is_lifetime_aware_v<const int*>,
 static_assert(!is_lifetime_aware_v<std::reference_wrapper<int>>,
               "is_lifetime_aware — reference_wrapper does not keep its referent alive");
 
+static_assert(is_lifetime_aware_v<int[4]>,
+              "is_lifetime_aware — a bounded array owns its elements");
+static_assert(is_lifetime_aware_v<int[]>,
+              "is_lifetime_aware — an unbounded array owns its elements");
+static_assert(!is_lifetime_aware_v<std::span<int>[4]>,
+              "is_lifetime_aware — an array of a non-owning type is not lifetime aware");
+static_assert(!is_lifetime_aware_v<std::span<int>[]>,
+              "is_lifetime_aware — an array of a non-owning type is not lifetime aware");
+
 static_assert(is_lifetime_aware_v<std::shared_ptr<int>>,
               "is_lifetime_aware — shared_ptr keeps its referent alive");
 static_assert(is_lifetime_aware_v<std::weak_ptr<int>>,

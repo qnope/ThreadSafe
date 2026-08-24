@@ -38,6 +38,9 @@ template <class T, std::size_t N>
 struct is_lifetime_aware<T[N]> : is_lifetime_aware<std::remove_cv_t<T>> {};
 
 template <class T>
+struct is_lifetime_aware<T[]> : is_lifetime_aware<std::remove_cv_t<T>> {};
+
+template <class T>
 struct is_lifetime_aware<std::reference_wrapper<T>> : std::false_type {};
 
 template <class T>

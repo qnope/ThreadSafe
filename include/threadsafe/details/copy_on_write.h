@@ -31,6 +31,8 @@ public:
     {
         if (ptr_.use_count() != 1)
             ptr_ = std::make_shared<T>(*ptr_);
+        else
+            std::atomic_thread_fence(std::memory_order_acquire);
         return *ptr_;
     }
 
