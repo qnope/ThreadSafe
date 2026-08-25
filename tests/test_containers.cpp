@@ -31,6 +31,14 @@ struct MutCache {
     mutable int parsed;
 };
 
+// Vouched for as if it synchronized itself: the point is not that a vector ever
+// does, but that the std-wrapper rule must not short-circuit the invariant.
+struct VouchedElement {
+    mutable int cache;
+};
+
+struct OptedOut {};
+
 struct MoveOnlyStrings {
     std::vector<std::string> strings;
     MoveOnlyStrings(const MoveOnlyStrings&) = delete;
@@ -40,6 +48,11 @@ struct MoveOnlyStrings {
 };
 
 }
+
+THREADSAFE_UNSAFE_ASSERT_SYNCHRONIZABLE(std::vector<VouchedElement>);
+
+template <>
+struct threadsafe::is_sendable<std::vector<OptedOut>> : std::false_type {};
 
 using threadsafe::is_sendable_v;
 using threadsafe::is_synchronizable_v;
@@ -140,3 +153,12 @@ static_assert(is_synchronizable_v<const std::less<int>>
 static_assert(!is_synchronizable_v<const std::set<int, BadCompare>>,
               "is_synchronizable — a stored policy with a user-provided copy "
               "fails the structural guard");
+
+static_assert(is_sendable_v<std::vector<VouchedElement>>
+                  && is_synchronizable_v<const std::vector<VouchedElement>>,
+              "is_sendable/is_synchronizable — synchronizable implies sendable "
+              "and readable from several threads at once; the std-wrapper rule "
+              "answers before the walk, so it carries that invariant itself");
+static_assert(!is_sendable_v<std::vector<OptedOut>>,
+              "is_sendable — a full specialization outranks the std-wrapper "
+              "rule, which is itself a constrained partial specialization");

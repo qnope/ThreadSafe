@@ -1,5 +1,6 @@
 #pragma once
 
+#include <threadsafe/details/allowed_std_wrappers.h>
 #include <threadsafe/details/synchronizable.h>
 #include <threadsafe/details/sendable.h>
 #include <threadsafe/details/smart_pointers.h>

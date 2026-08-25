@@ -4,7 +4,6 @@
 #include <meta>
 #include <type_traits>
 
-#include <threadsafe/details/allowed_std_wrappers.h>
 #include <threadsafe/details/synchronizable_base.h>
 #include <threadsafe/details/utils.h>
 
@@ -136,16 +135,6 @@ inline consteval void diagnose_default_is_sendable(std::meta::info type,
                u8"is not a scalar, class or union type — is_sendable<T> "
                u8"supports no others",
                path);
-
-    // A standard wrapper is nothing but its arguments: ask them instead of
-    // walking members that only hold pointers to them.
-    if (is_allowed_std_wrapper(type)) {
-        for (info wrapped : wrapped_types_of(type))
-            if (!is_sendable_type(wrapped))
-                explain_sendable(type, u8"wraps a type that is not sendable",
-                                 wrapped, path);
-        return;
-    }
 
     if (!is_complete_type(type))
         reject(type,

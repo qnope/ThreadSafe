@@ -7,7 +7,6 @@
 #include <ranges>
 #include <type_traits>
 
-#include <threadsafe/details/allowed_std_wrappers.h>
 #include <threadsafe/details/utils.h>
 
 namespace threadsafe {
@@ -162,17 +161,6 @@ diagnose_default_is_lifetime_aware(std::meta::info type, std::u8string path) {
 
     if (!is_class_type(type) && !is_union_type(type))
         return;
-
-    // A standard wrapper is nothing but its arguments: ask them instead of
-    // walking members that only hold pointers to them.
-    if (is_allowed_std_wrapper(type)) {
-        for (info wrapped : wrapped_types_of(type))
-            if (!is_lifetime_aware_type(wrapped))
-                explain_lifetime_aware(
-                    type, u8"wraps a type that is not lifetime aware", wrapped,
-                    path);
-        return;
-    }
 
     if (!is_complete_type(type))
         reject(type,
