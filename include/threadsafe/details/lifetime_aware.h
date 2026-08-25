@@ -46,10 +46,14 @@ struct is_lifetime_aware<T[]> : is_lifetime_aware<std::remove_cv_t<T>> {};
 template <class T>
 struct is_lifetime_aware<std::reference_wrapper<T>> : std::false_type {};
 
+// Ownership is transitive: the control block keeps the T alive, but a T that
+// only borrows still borrows.
 template <class T>
-struct is_lifetime_aware<std::shared_ptr<T>> : std::true_type {};
+struct is_lifetime_aware<std::shared_ptr<T>>
+    : is_lifetime_aware<std::remove_cv_t<std::remove_all_extents_t<T>>> {};
 template <class T>
-struct is_lifetime_aware<std::weak_ptr<T>> : std::true_type {};
+struct is_lifetime_aware<std::weak_ptr<T>>
+    : is_lifetime_aware<std::remove_cv_t<std::remove_all_extents_t<T>>> {};
 
 template <class T>
 concept lifetime_aware = is_lifetime_aware_v<T>;

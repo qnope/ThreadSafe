@@ -56,7 +56,19 @@ static_assert(is_lifetime_aware_v<std::shared_ptr<int>>,
 static_assert(is_lifetime_aware_v<std::weak_ptr<int>>,
               "is_lifetime_aware — weak_ptr keeps its control block alive");
 
-static_assert(is_lifetime_aware_v<std::shared_ptr<std::span<int>>>,
-              "is_lifetime_aware — an owner of a borrowed range is still an owner");
+static_assert(!is_lifetime_aware_v<std::shared_ptr<std::span<int>>>,
+              "is_lifetime_aware — ownership is transitive: the control block "
+              "keeps the span alive, not the storage the span points at");
+static_assert(!is_lifetime_aware_v<std::weak_ptr<std::span<int>>>,
+              "is_lifetime_aware — weak_ptr forwards the question just like shared_ptr");
+static_assert(!is_lifetime_aware_v<std::shared_ptr<int*>>,
+              "is_lifetime_aware — a shared raw pointer is still a borrow");
+
+static_assert(is_lifetime_aware_v<std::shared_ptr<void>>,
+              "is_lifetime_aware — shared_ptr<void> owns an erased object");
+static_assert(is_lifetime_aware_v<std::shared_ptr<std::string[]>>,
+              "is_lifetime_aware — the question reaches the element type");
+static_assert(is_lifetime_aware_v<std::shared_ptr<const std::string>>,
+              "is_lifetime_aware — cv on the pointee does not change the answer");
 static_assert(!is_lifetime_aware_v<std::vector<int>&>,
               "is_lifetime_aware — the T& rule beats the by-value rule");
