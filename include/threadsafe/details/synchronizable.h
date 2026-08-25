@@ -5,6 +5,7 @@
 #include <meta>
 #include <type_traits>
 
+#include <threadsafe/details/allowed_std_wrappers.h>
 #include <threadsafe/details/sendable.h>
 #include <threadsafe/details/synchronizable_base.h>
 
@@ -146,6 +147,23 @@ diagnose_default_is_const_synchronizable(std::meta::info type,
                u8"is not a scalar, class or union type — "
                u8"is_synchronizable<const T> supports no others",
                path);
+
+    // [res.on.data.races]: the const member functions of a standard container
+    // may run concurrently, so a const wrapper is read-safe exactly when
+    // everything a reader reaches through it — elements and stored policies —
+    // is. Reading the arguments also keeps the recursion out of libstdc++
+    // internals, whose mutable members (unordered_*'s rehash policy) are
+    // covered by that guarantee.
+    if (is_allowed_std_wrapper(type)) {
+        for (info wrapped : wrapped_types_of(type))
+            if (!is_synchronizable_type(add_const(wrapped)))
+                explain_const_synchronizable(
+                    type,
+                    u8"wraps a type that is not readable from several threads "
+                    u8"at once",
+                    wrapped, path);
+        return;
+    }
 
     if (!is_complete_type(type))
         reject(type,

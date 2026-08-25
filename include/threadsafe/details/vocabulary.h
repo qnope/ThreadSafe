@@ -1,70 +1,22 @@
 #pragma once
 
-#include <array>
-#include <optional>
+#include <memory>
 #include <stop_token>
-#include <tuple>
-#include <utility>
-#include <variant>
+#include <type_traits>
 
 #include <threadsafe/details/lifetime_aware.h>
 #include <threadsafe/details/sendable.h>
 
 namespace threadsafe {
 
-template <class A, class B>
-struct is_sendable<std::pair<A, B>>
-    : std::bool_constant<is_sendable_v<A> && is_sendable_v<B>> {};
-template <class A, class B>
-struct is_lifetime_aware<std::pair<A, B>>
-    : std::bool_constant<is_lifetime_aware_v<A> && is_lifetime_aware_v<B>> {};
-
-template <class... Ts>
-struct is_sendable<std::tuple<Ts...>>
-    : std::bool_constant<(is_sendable_v<Ts> && ...)> {};
-template <class... Ts>
-struct is_lifetime_aware<std::tuple<Ts...>>
-    : std::bool_constant<(is_lifetime_aware_v<Ts> && ...)> {};
-
+// std::allocator is stateless -- allowed_std_wrappers cannot say this,
+// because it is true even for a T that answers no.
 template <class T>
-struct is_sendable<std::optional<T>> : std::bool_constant<is_sendable_v<T>> {};
+struct is_sendable<std::allocator<T>> : std::true_type {};
 template <class T>
-struct is_lifetime_aware<std::optional<T>> : is_lifetime_aware<T> {};
-
-template <class... Ts>
-struct is_sendable<std::variant<Ts...>>
-    : std::bool_constant<(is_sendable_v<Ts> && ...)> {};
-template <class... Ts>
-struct is_lifetime_aware<std::variant<Ts...>>
-    : std::bool_constant<(is_lifetime_aware_v<Ts> && ...)> {};
-
-template <class T, std::size_t N>
-struct is_sendable<std::array<T, N>> : std::bool_constant<is_sendable_v<T>> {};
-template <class T, std::size_t N>
-struct is_lifetime_aware<std::array<T, N>> : is_lifetime_aware<T> {};
-
-// These need explicit const rules only because their constructor templates
-// block the structural default; the elements are held by value.
-template <class A, class B>
-struct is_synchronizable<const std::pair<A, B>>
-    : std::bool_constant<is_synchronizable_v<const A>
-                         && is_synchronizable_v<const B>> {};
-
-template <class... Ts>
-struct is_synchronizable<const std::tuple<Ts...>>
-    : std::bool_constant<(is_synchronizable_v<const Ts> && ...)> {};
-
+struct is_synchronizable<const std::allocator<T>> : std::true_type {};
 template <class T>
-struct is_synchronizable<const std::optional<T>>
-    : is_synchronizable<const T> {};
-
-template <class... Ts>
-struct is_synchronizable<const std::variant<Ts...>>
-    : std::bool_constant<(is_synchronizable_v<const Ts> && ...)> {};
-
-template <class T, std::size_t N>
-struct is_synchronizable<const std::array<T, N>>
-    : is_synchronizable<const T> {};
+struct is_lifetime_aware<std::allocator<T>> : std::true_type {};
 
 // [stoptoken.general] promises only that request_stop, stop_requested and
 // stop_possible are race-free. Both types are refcounted handles whose copy
