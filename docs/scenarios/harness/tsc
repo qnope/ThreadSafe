@@ -1,5 +1,0 @@
-#!/bin/zsh
-# tsc <file.cpp> [flags] -- compile-only probe against ThreadSafe.
-# exit 0 = accepted (every static_assert held). Non-zero = rejected; stderr has why.
-REPO="${THREADSAFE_ROOT:-${0:A:h}/../../..}"
-exec g++-16 -std=c++26 -freflection -fsyntax-only -I"$REPO/include" "$@"

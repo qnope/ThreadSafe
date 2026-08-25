@@ -1,7 +1,0 @@
-#!/bin/zsh
-# tsrun <file.cpp> [flags] -- build at -O2 and run. For behaviour and benchmarks.
-set -e
-REPO="${THREADSAFE_ROOT:-${0:A:h}/../../..}"
-out="${TMPDIR:-/tmp}/${1:t:r}.bin"
-g++-16 -std=c++26 -freflection -O2 -pthread -I"$REPO/include" "$@" -o "$out"
-"$out"
