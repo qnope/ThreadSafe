@@ -28,6 +28,7 @@ struct threadsafe::is_synchronizable<SyncType> : std::true_type {};
 
 using threadsafe::is_sendable_v;
 using threadsafe::is_synchronizable_v;
+using threadsafe::is_lifetime_aware_v;
 
 static_assert(is_sendable_v<std::unique_ptr<int>>,
               "is_sendable — the default deleter is stateless, so only the pointee matters");
@@ -48,6 +49,16 @@ static_assert(!is_sendable_v<std::shared_ptr<int>>,
               "is_sendable — sending a shared_ptr shares a non-synchronizable referent");
 static_assert(!is_sendable_v<std::shared_ptr<void>>,
               "is_sendable — shared_ptr<void> shares an unknowable referent");
+static_assert(!is_synchronizable_v<std::shared_ptr<void>>
+                  && !is_synchronizable_v<const std::shared_ptr<void>>
+                  && !is_lifetime_aware_v<std::shared_ptr<void>>,
+              "shared_ptr<void> erases the referent: no trait may be granted on "
+              "a static type that says nothing about the object held");
+static_assert(!is_sendable_v<std::weak_ptr<void>>
+                  && !is_synchronizable_v<std::weak_ptr<void>>
+                  && !is_synchronizable_v<const std::weak_ptr<void>>
+                  && !is_lifetime_aware_v<std::weak_ptr<void>>,
+              "the weak_ptr form erases the referent just the same");
 static_assert(!is_sendable_v<std::weak_ptr<int>>,
               "is_sendable — a weak_ptr can be locked into shared access");
 static_assert(is_sendable_v<std::shared_ptr<SyncType>>,
@@ -95,8 +106,8 @@ static_assert(!is_synchronizable_v<const std::unique_ptr<int>>,
               "is_synchronizable — get() const hands out a plain int*");
 static_assert(is_synchronizable_v<const std::unique_ptr<const int>>,
               "is_synchronizable — owned storage: the element keeps its own cv "
-              "through get(), the same alias-free assumption the sendable rule "
-              "makes");
+              "through get(), on the same two assumptions the sendable rule "
+              "makes — no other alias, and a known dynamic type");
 static_assert(!is_synchronizable_v<const std::unique_ptr<const int, BadDeleter>>,
               "is_synchronizable — the deleter is stored, so it is read too");
 static_assert(is_synchronizable_v<const std::default_delete<int>>,

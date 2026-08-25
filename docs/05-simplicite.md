@@ -308,8 +308,10 @@ qui le fait » reste vraie : `volatile int[3]` demeure non synchronizable.
   have been » sans espace), qui décrit une alternative de conception non retenue.
 - **`has_unreflectable_state`, le prédicat le plus délicat de `utils.h`, est documenté par
   quatre mots** : « Mostly for closure type. »
-- **`dynamic_type_is_known` est la règle la moins évidente de la bibliothèque** et se
-  trouve à 60 lignes de son unique point d'usage.
+- ~~**`dynamic_type_is_known` est la règle la moins évidente de la bibliothèque** et se
+  trouve à 60 lignes de son unique point d'usage.~~ Corrigé : la règle vit dans
+  `utils.h`, sous le commentaire qui dit *pourquoi* une réponse structurelle ne prouve
+  rien à travers une indirection, et elle a désormais quatre points d'usage.
 - **`f` est la seule variable à lettre unique** de la bibliothèque et apparaît deux fois,
   en violation directe de la règle « toujours des noms explicites » de `CLAUDE.md`.
 - **`threadsafe.h`, le premier fichier qu'un lecteur ouvre, est onze `#include` nus dans

@@ -60,10 +60,6 @@ consteval void assert_sendable() {
 
 namespace detail {
 
-template <class T>
-constexpr bool dynamic_type_is_known =
-    !std::is_polymorphic_v<T> || std::is_final_v<T>;
-
 // Continue the walk inside `inner`, already reached through `path`. Coming back
 // from the walk means `inner` answers false through a specialization the walk
 // cannot read — that is itself the reason.

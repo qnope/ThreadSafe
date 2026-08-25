@@ -236,7 +236,7 @@ martelant leurs méthodes `const` sous TSan.
 
 ---
 
-## 3. `const std::unique_ptr<T,D>` : la garde de type dynamique manque — élevée, confirmée
+## 3. `const std::unique_ptr<T,D>` : la garde de type dynamique manque — élevée, confirmée, **corrigée**
 
 `smart_pointers.h` applique `detail::dynamic_type_is_known` à
 `is_sendable<std::unique_ptr<T,D>>` (ligne 16-19) mais **pas** à
@@ -259,7 +259,7 @@ n'est pas un membre réfléchi — `has_unreflectable_state` exclut explicitemen
 types polymorphes — donc la marche voit une classe vide. Un dérivé avec un membre
 `mutable` passe alors sans être vu.
 
-### Correctif minimal — vérifié, les 11 TU passent
+### Correctif appliqué — généralisé, les 11 TU passent
 
 ```cpp
 template <class T, class D>
@@ -270,13 +270,43 @@ struct is_synchronizable<const std::unique_ptr<T, D>>
                                 std::remove_cv_t<std::remove_all_extents_t<T>>>> {};
 ```
 
-`remove_cv_t` est nécessaire parce que `T` est ici typiquement `const Report`.
-Vérifié : ne sur-rejette pas — `const unique_ptr<const PolyFinal>`,
-`<const int>`, `<const int[]>`, `<const Plain>` restent vrais.
+`remove_cv_t` s'avère inutile : `is_polymorphic` et `is_final` acceptent un type
+de classe cv-qualifié. Vérifié : ne sur-rejette pas — `const unique_ptr<const
+PolyFinal>`, `<const int>`, `<const int[]>`, `<const Plain>` restent vrais.
 
-Le commentaire du test existant (`test_smart_pointers.cpp`), qui affirme « the same
-alias-free assumption the sendable rule makes », est à corriger en même temps :
-la règle `sendable` fait une hypothèse de **plus**, précisément celle-ci.
+**Ce qui a été retenu va plus loin que ce correctif.** La question posée n'est pas
+« `unique_ptr` a-t-il oublié la garde ? » mais « quels sites répondent
+*structurellement* au sujet d'un pointé ? ». Il y en avait quatre, un seul gardé :
+
+| site | interroge | gardé avant | après |
+|---|---|---|---|
+| `is_sendable<unique_ptr<T,D>>` | `is_sendable_v<T>` | ✅ | ✅ |
+| `is_synchronizable<const unique_ptr<T,D>>` | `is_synchronizable_v<const T>` | ❌ | ✅ |
+| `is_lifetime_aware<unique_ptr<T,D>>` | `is_lifetime_aware_v<T>` | ❌ | ✅ |
+| `is_lifetime_aware<shared_ptr<T>>` / `<weak_ptr<T>>` | `is_lifetime_aware_v<T>` | ❌ | ✅ |
+
+Le trou `lifetime_aware` est le symétrique du trou `const` : un dérivé qui ne fait
+qu'emprunter passe la garde de sa base, et `launch_task` accepte alors une poignée
+qui pend.
+
+Tous les autres sites restent délibérément **non gardés** : `is_sendable<T*>`,
+`<T&>`, `<shared_ptr<T>>`, `<reference_wrapper<T>>` et les branches
+pointeur/référence de la marche `const` retirent les cv et posent
+`is_synchronizable<T>`, trait **opt-in** sans défaut structurel — l'utilisateur qui
+se porte garant d'une base polymorphe l'a fait à la main.
+
+La garde a déménagé dans `utils.h` (seul en-tête commun aux trois traits) et
+interroge désormais `is_complete_type` d'abord : voir
+[08-api-et-flexibilite.md](./08-api-et-flexibilite.md) §4, dont c'était le
+prérequis. `void` y répond **non** : il efface le type, l'objet derrière est
+d'un autre type que rien ici ne nomme — c'est exactement la question posée. Les
+traits le refusent aussi pour leur propre compte (« holds no value to send /
+read / own »), si bien que `shared_ptr<void>` est faux pour les quatre
+questions.
+
+Le commentaire du test existant (`test_smart_pointers.cpp`), qui affirmait « the same
+alias-free assumption the sendable rule makes », est corrigé : les deux règles font
+désormais les **mêmes deux** hypothèses.
 
 ---
 

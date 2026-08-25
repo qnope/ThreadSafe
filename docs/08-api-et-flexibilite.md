@@ -298,7 +298,7 @@ avertissement.
 
 ---
 
-## 4. L'idiome pimpl que la bibliothèque recommande ne compile pas
+## 4. L'idiome pimpl que la bibliothèque recommande ne compile pas — **corrigé**
 
 Le diagnostic de `sendable.h` dit :
 
@@ -327,21 +327,38 @@ prétend savoir répondre. Le conseil qu'elle imprime n'atteint donc jamais le c
 pour lequel il a été écrit.
 
 Le correctif est de n'interroger `is_polymorphic`/`is_final` qu'une fois la
-complétude vérifiée :
+complétude vérifiée. C'est ce qui est en place dans `utils.h` :
 
 ```cpp
-// std::is_polymorphic and std::is_final are ill-formed on an incomplete type,
-// so they are asked only once the type is known. An incomplete pointee cannot
-// be judged at all: the pointer may own a derived object the trait never sees,
-// which is exactly the case this guard exists for.
 template <class T>
 consteval bool compute_dynamic_type_is_known() {
-    if constexpr (!std::meta::is_complete_type(^^T))
+    // void erases the type outright: nothing was read off a static type, so
+    // the object behind it is of some other type entirely, and nothing here
+    // names it. That is the question this guard asks, so the answer is no.
+    if constexpr (std::is_void_v<T>)
+        return false;
+    else if constexpr (!std::meta::is_complete_type(^^T))
         return false;
     else
         return !std::is_polymorphic_v<T> || std::is_final_v<T>;
 }
 ```
+
+Le cas `void` n'était pas dans l'analyse initiale : il tombait dans la branche
+« type incomplet », qui donne la bonne réponse pour la mauvaise raison. Il a
+donc sa branche à lui, qui répond **non** — un type effacé n'est pas un type
+connu. `shared_ptr<void>` n'est donc pas `lifetime_aware` : le bloc de contrôle
+garde bien *un* objet en vie, mais rien dans le type statique ne dit que cet
+objet n'est pas lui-même un emprunteur — c'est le cas `shared_ptr<span<int>>`,
+en pire.
+
+L'exemple ci-dessus produisait 68 lignes d'internals de libstdc++ ; il compile
+désormais proprement, et `is_sendable_v<Widget>` répond `false` avec le diagnostic
+qui recommande de spécialiser le trait — le conseil atteint enfin le cas pour
+lequel il a été écrit. Ce correctif était le prérequis de l'élargissement de la
+garde décrit en [01-robustesse-des-traits.md](./01-robustesse-des-traits.md) §3 :
+l'appliquer à `shared_ptr`/`weak_ptr` aurait sinon répandu l'erreur dure sur la
+forme de pimpl la plus courante.
 
 ## 5. Les adaptateurs de conteneurs sont refusés
 

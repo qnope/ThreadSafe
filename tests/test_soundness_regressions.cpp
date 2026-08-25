@@ -54,6 +54,11 @@ struct PolyBase {
 };
 struct PolyFinal final : PolyBase {};
 
+class Implementation;
+struct Pimpl {
+    std::unique_ptr<Implementation> impl;
+};
+
 struct WithCArray {
     char data[64];
     unsigned len;
@@ -123,6 +128,30 @@ static_assert(is_sendable_v<std::unique_ptr<PolyFinal>>,
               "a final type has no unknown dynamic type");
 static_assert(is_sendable_v<std::unique_ptr<int>>,
               "non-polymorphic pointees are unaffected");
+
+static_assert(!is_synchronizable_v<const std::unique_ptr<const PolyBase>>,
+              "the const question may not trust a pointee whose dynamic type is "
+              "unknown either: a derived object may hold a mutable member");
+static_assert(is_synchronizable_v<const std::unique_ptr<const PolyFinal>>,
+              "a final pointee has no unknown dynamic type");
+static_assert(is_synchronizable_v<const std::unique_ptr<const int>>,
+              "non-polymorphic pointees are unaffected");
+
+static_assert(!is_lifetime_aware_v<std::unique_ptr<PolyBase>>,
+              "a derived object may borrow what the base owns");
+static_assert(!is_lifetime_aware_v<std::shared_ptr<PolyBase>>,
+              "shared ownership does not make the derived object an owner");
+static_assert(!is_lifetime_aware_v<std::weak_ptr<PolyBase>>,
+              "a weak_ptr locks into the same unknown object");
+static_assert(is_lifetime_aware_v<std::unique_ptr<PolyFinal>>
+                  && is_lifetime_aware_v<std::shared_ptr<PolyFinal>>,
+              "a final pointee has no unknown dynamic type");
+
+static_assert(!is_sendable_v<Pimpl>,
+              "an incomplete pointee answers false, not a libstdc++ hard error "
+              "from is_polymorphic_v on an incomplete type");
+static_assert(!is_lifetime_aware_v<std::shared_ptr<Implementation>>,
+              "an incomplete pointee cannot be judged at all");
 
 static_assert(is_sendable_v<int[4]>, "arrays follow their element type");
 static_assert(!is_sendable_v<int*[4]>,

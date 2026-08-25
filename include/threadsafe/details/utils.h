@@ -71,6 +71,30 @@ inline consteval std::u8string path_step(std::meta::info subject) {
     reject(subject, reason, path + path_step(subject));
 }
 
+// A structural trait walks the members of the *static* type. Through an
+// indirection the object may be of a derived type, whose extra members the walk
+// never saw, so a structural answer about a polymorphic non-final pointee proves
+// nothing about the object actually there.
+//
+// std::is_polymorphic and std::is_final are ill-formed on an incomplete type, so
+// they are asked only once completeness is known. An incomplete pointee cannot be
+// judged at all, which is exactly the case this guard exists for.
+template <class T>
+consteval bool compute_dynamic_type_is_known() {
+    // void erases the type outright: the object behind it is of some other
+    // type entirely, and nothing here names it. That is the question this
+    // guard asks, so the answer is no.
+    if constexpr (std::is_void_v<T>)
+        return false;
+    else if constexpr (!std::meta::is_complete_type(^^T))
+        return false;
+    else
+        return !std::is_polymorphic_v<T> || std::is_final_v<T>;
+}
+
+template <class T>
+constexpr bool dynamic_type_is_known = compute_dynamic_type_is_known<T>();
+
 inline consteval bool trait_value(std::meta::info trait, std::meta::info type) {
     return std::meta::extract<bool>(std::meta::substitute(trait, {type}));
 }

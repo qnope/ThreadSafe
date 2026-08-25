@@ -48,13 +48,20 @@ template <class T>
 struct is_lifetime_aware<std::reference_wrapper<T>> : std::false_type {};
 
 // Ownership is transitive: the control block keeps the T alive, but a T that
-// only borrows still borrows.
+// only borrows still borrows -- and that answer is read off the static type, so
+// the dynamic type must be known for it to hold of the object actually pointed to.
 template <class T>
 struct is_lifetime_aware<std::shared_ptr<T>>
-    : is_lifetime_aware<std::remove_cv_t<std::remove_all_extents_t<T>>> {};
+    : std::bool_constant<
+          is_lifetime_aware_v<std::remove_cv_t<std::remove_all_extents_t<T>>>
+          && detail::dynamic_type_is_known<
+                 std::remove_cv_t<std::remove_all_extents_t<T>>>> {};
 template <class T>
 struct is_lifetime_aware<std::weak_ptr<T>>
-    : is_lifetime_aware<std::remove_cv_t<std::remove_all_extents_t<T>>> {};
+    : std::bool_constant<
+          is_lifetime_aware_v<std::remove_cv_t<std::remove_all_extents_t<T>>>
+          && detail::dynamic_type_is_known<
+                 std::remove_cv_t<std::remove_all_extents_t<T>>>> {};
 
 template <class T>
 concept lifetime_aware = is_lifetime_aware_v<T>;
@@ -143,6 +150,9 @@ diagnose_default_is_lifetime_aware(std::meta::info type, std::u8string path) {
                 element, path);
         return;
     }
+
+    if (is_void_type(type))
+        reject(type, u8"holds no value to own", path);
 
     if (trait_value(^^std::ranges::borrowed_range, type))
         reject(type,

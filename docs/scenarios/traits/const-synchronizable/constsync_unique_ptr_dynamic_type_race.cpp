@@ -1,15 +1,18 @@
-// is_sendable<unique_ptr<T,D>> guards the unknown dynamic type with
-// detail::dynamic_type_is_known.  is_synchronizable<const unique_ptr<T,D>>,
-// written 25 lines below it in the same header, does not -- so the const
-// question answers "read-safe" for a handle whose pointee is a derived object
-// carrying a mutable cache.
+// Was: is_sendable<unique_ptr<T,D>> guarded the unknown dynamic type with
+// detail::dynamic_type_is_known, while is_synchronizable<const unique_ptr<T,D>>,
+// written 25 lines below it in the same header, did not -- so the const question
+// answered "read-safe" for a handle whose pointee is a derived object carrying a
+// mutable cache, and read_shared_box below handed it a shared_lock.
+//
+// Fixed: the guard is now applied at every site that answers *structurally* about
+// a pointee -- the const question and is_lifetime_aware as well as is_sendable.
+// This file is the compile-only proof; it no longer races because it no longer
+// compiles a racing box.
 
 #include <threadsafe/threadsafe.h>
 
-#include <cstdio>
 #include <memory>
 #include <shared_mutex>
-#include <thread>
 
 namespace {
 
@@ -30,6 +33,13 @@ struct MemoizingReport final : Report {
     }
 };
 
+struct FrozenReport final : Report {
+    explicit FrozenReport(int row_count) : rows(row_count) {}
+
+    int rows;
+    int total() const override { return rows * 2; }
+};
+
 }
 
 using threadsafe::is_sendable_v;
@@ -38,13 +48,21 @@ using threadsafe::is_synchronizable_v;
 static_assert(!is_synchronizable_v<const MemoizingReport>,
               "the walk sees the mutable memo and says no");
 static_assert(!is_sendable_v<std::unique_ptr<const Report>>,
-              "is_sendable DOES guard the unknown dynamic type");
-static_assert(is_synchronizable_v<const std::unique_ptr<const Report>>,
-              "but is_synchronizable<const unique_ptr<...>> does NOT: it says "
-              "this handle is readable from several threads at once");
+              "is_sendable guards the unknown dynamic type");
+static_assert(!is_synchronizable_v<const std::unique_ptr<const Report>>,
+              "and so does the const question now: the pointee may be the "
+              "MemoizingReport, whose mutable memo the walk never sees through "
+              "the base");
+static_assert(is_synchronizable_v<const std::unique_ptr<const FrozenReport>>,
+              "a final pointee has a known dynamic type, so the const of owned "
+              "storage is trusted as before");
+static_assert(is_synchronizable_v<const std::unique_ptr<const int>>,
+              "non-polymorphic pointees are unaffected");
 
 // Exactly the shape synchronized_value derives from the trait:
 // is_synchronizable_v<const T> -> shared_mutex + shared_lock for const access.
+// Instantiating it on unique_ptr<const Report> is now a compile error, which is
+// the whole point.
 template <class T>
 class read_shared_box {
     static_assert(is_synchronizable_v<const T>,
@@ -64,26 +82,4 @@ private:
     T value_;
 };
 
-int main() {
-    std::unique_ptr<const Report> owned =
-        std::make_unique<const MemoizingReport>(21);
-    read_shared_box<std::unique_ptr<const Report>> box{std::move(owned)};
-
-    auto hammer = [&box] {
-        int accumulated = 0;
-        for (int iteration = 0; iteration < 20000; ++iteration)
-            accumulated += box.read(
-                [](const std::unique_ptr<const Report> &handle) {
-                    return handle->total();
-                });
-        return accumulated;
-    };
-
-    std::thread first_reader{hammer};
-    std::thread second_reader{hammer};
-    first_reader.join();
-    second_reader.join();
-
-    std::printf("done\n");
-    return 0;
-}
+template class read_shared_box<std::unique_ptr<const FrozenReport>>;
