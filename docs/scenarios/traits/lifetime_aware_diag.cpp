@@ -1,0 +1,9 @@
+#include <threadsafe/threadsafe.h>
+#include <future>
+#include <filesystem>
+#include <valarray>
+#include <regex>
+#include <thread>
+#include <exception>
+static_assert((threadsafe::assert_lifetime_aware<std::thread>(), true));
+int main(){}
