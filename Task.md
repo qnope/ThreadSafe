@@ -1,6 +1,4 @@
-Relit le code et test la bibliothèque ThreadSafe
-Cree différents scénarios et execute les.
-Focus sur:
+Audit complet de la bibliothèque
 * La robustesse.
   * Test individuellement chacun des traits
     * is_synchronizable<T>
@@ -8,7 +6,7 @@ Focus sur:
     * is_lifetime_aware<T>
     * is_sendable<T>
   * Test individuellement les helpers
-    * copy_on_write<T>
+    * copy_on_write<T>: ne t'embête pas avec le move et use after move
     * synchronized_value<T>
     * asynchronous_task<T> ne doit pas accepter de type unsafe
 * La simplicité du code qui a vocation d'être éducationnel
@@ -21,8 +19,3 @@ Focus sur:
 * Performance au run time
 * API facile à utiliser
 * Flexibilité
-
-Ecrit les différents rapports dans docs/
-Plusieurs fichiers peuvent être générés au besoin.
-Si code problématique: L'écrire complètement dans le rapport, pas juste un snippet.
-Si solution: L'écrire complètement dans le rapport également
