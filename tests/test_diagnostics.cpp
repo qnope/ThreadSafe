@@ -4,10 +4,9 @@
 #include <memory>
 #include <string>
 
-// The assert_* functions are the diagnostic face of the traits: they agree with
-// the trait on a conforming type (they compile and return), and turn a "false"
-// into a std::meta::exception naming the culprit. Only the agreeing half is
-// testable here — the throwing half *is* a compile error by design.
+// A trait answers with the reason it says no. This file checks both halves of
+// that contract: an accepted type carries no reason, and a rejected one carries
+// one — the message the user is meant to read.
 
 namespace {
 
@@ -20,52 +19,49 @@ struct DerivedFromPlain : Plain {
     std::string name;
 };
 
-consteval bool sendable_diagnostics_agree() {
-    threadsafe::assert_sendable<int>();
-    threadsafe::assert_sendable<Plain>();
-    threadsafe::assert_sendable<const Plain>();
-    threadsafe::assert_sendable<DerivedFromPlain>();
-    threadsafe::assert_sendable<std::atomic<int>>();
-    threadsafe::assert_sendable<int[3]>();
-    return true;
+using threadsafe::is_lifetime_aware_v;
+using threadsafe::is_sendable_v;
+using threadsafe::is_synchronizable_v;
+
+static_assert(is_sendable_v<int>);
+static_assert(is_sendable_v<Plain>);
+static_assert(is_sendable_v<const Plain>);
+static_assert(is_sendable_v<DerivedFromPlain>);
+static_assert(is_sendable_v<std::atomic<int>>);
+static_assert(is_sendable_v<int[3]>);
+
+static_assert(is_synchronizable_v<std::atomic<int>>);
+static_assert(is_synchronizable_v<const Plain>);
+static_assert(is_synchronizable_v<const DerivedFromPlain>);
+static_assert(is_synchronizable_v<std::atomic<int> *const>);
+static_assert(is_synchronizable_v<const Plain[2]>);
+
+static_assert(is_lifetime_aware_v<int>);
+static_assert(is_lifetime_aware_v<Plain>);
+static_assert(is_lifetime_aware_v<std::shared_ptr<int>>);
+static_assert(is_lifetime_aware_v<DerivedFromPlain>);
+static_assert(is_lifetime_aware_v<void (*)()>);
+static_assert(is_lifetime_aware_v<Plain[2]>);
+
+consteval bool carries_a_reason(threadsafe::TraitAnswer answer) {
+    return !answer && answer.error_message[0] != '\0';
 }
 
-consteval bool synchronizable_diagnostics_agree() {
-    threadsafe::assert_synchronizable<std::atomic<int>>();
-    threadsafe::assert_synchronizable<const Plain>();
-    threadsafe::assert_synchronizable<const DerivedFromPlain>();
-    threadsafe::assert_synchronizable<std::atomic<int> *const>();
-    threadsafe::assert_synchronizable<const Plain[2]>();
-    return true;
-}
+// An accepted type has nothing to explain.
+static_assert(is_sendable_v<Plain>.error_message == nullptr);
 
-consteval bool lifetime_aware_diagnostics_agree() {
-    threadsafe::assert_lifetime_aware<int>();
-    threadsafe::assert_lifetime_aware<Plain>();
-    threadsafe::assert_lifetime_aware<std::shared_ptr<int>>();
-    threadsafe::assert_lifetime_aware<DerivedFromPlain>();
-    threadsafe::assert_lifetime_aware<void (*)()>();
-    threadsafe::assert_lifetime_aware<Plain[2]>();
-    return true;
-}
-
-static_assert(sendable_diagnostics_agree());
-static_assert(synchronizable_diagnostics_agree());
-static_assert(lifetime_aware_diagnostics_agree());
-
-// The other half of the contract: a trait that answers false must stay a plain
-// false — the std::meta::exception thrown to carry the reason never escapes.
+// A rejected one names why, so the message can be read back — by a
+// static_assert, or by the launcher's explaining overload.
 struct Borrowing {
     int *borrowed;
 };
 
-static_assert(!threadsafe::is_sendable_v<Borrowing>);
-static_assert(!threadsafe::is_synchronizable_v<const Borrowing>);
-static_assert(!threadsafe::is_lifetime_aware_v<Borrowing>);
+static_assert(carries_a_reason(is_sendable_v<Borrowing>));
+static_assert(carries_a_reason(is_synchronizable_v<const Borrowing>));
+static_assert(carries_a_reason(is_lifetime_aware_v<Borrowing>));
 
-// Nesting is where the walk now descends to name the root cause. The trait must
-// still answer a plain false: the path that assert_* carries is what turns the
-// descent on, and the trait never seeds one.
+// Nesting answers no just the same: the walk reaches the borrow through as many
+// hops as it takes.
 struct BorrowingMiddle {
     Borrowing inner;
 };
@@ -74,8 +70,8 @@ struct BorrowingOuter {
     BorrowingMiddle middle;
 };
 
-static_assert(!threadsafe::is_sendable_v<BorrowingOuter>);
-static_assert(!threadsafe::is_synchronizable_v<const BorrowingOuter>);
-static_assert(!threadsafe::is_lifetime_aware_v<BorrowingOuter>);
+static_assert(carries_a_reason(is_sendable_v<BorrowingOuter>));
+static_assert(carries_a_reason(is_synchronizable_v<const BorrowingOuter>));
+static_assert(carries_a_reason(is_lifetime_aware_v<BorrowingOuter>));
 
 }

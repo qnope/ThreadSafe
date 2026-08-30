@@ -52,7 +52,10 @@ struct MoveOnlyStrings {
 THREADSAFE_UNSAFE_ASSERT_SYNCHRONIZABLE(std::vector<VouchedElement>);
 
 template <>
-struct threadsafe::is_sendable<std::vector<OptedOut>> : std::false_type {};
+struct threadsafe::is_sendable<std::vector<OptedOut>> {
+    static constexpr threadsafe::TraitAnswer value
+        = "opted out by this test";
+};
 
 using threadsafe::is_sendable_v;
 using threadsafe::is_synchronizable_v;

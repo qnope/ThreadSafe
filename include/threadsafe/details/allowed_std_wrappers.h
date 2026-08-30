@@ -76,15 +76,15 @@ wrapped_types_of(std::meta::info type) {
 // that synchronizes itself is sendable whatever it holds, and a rule written as
 // a specialization is the only thing standing between that invariant and a
 // container someone vouched for.
-inline consteval bool std_wrapper_is_sendable(std::meta::info type) {
+inline consteval TraitAnswer std_wrapper_is_sendable(std::meta::info type) {
     if (is_synchronizable_type(type))
-        return true;
+        return {};
 
     for (std::meta::info wrapped : wrapped_types_of(type))
         if (!is_sendable_type(wrapped))
-            return false;
+            return "wraps a type that is not sendable";
 
-    return true;
+    return {};
 }
 
 // [res.on.data.races]: the const member functions of a standard container may
@@ -92,41 +92,47 @@ inline consteval bool std_wrapper_is_sendable(std::meta::info type) {
 // reader reaches through it — elements and stored policies — is. Reading the
 // arguments also keeps the recursion out of libstdc++ internals, whose mutable
 // members (unordered_*'s rehash policy) are covered by that guarantee.
-inline consteval bool
+inline consteval TraitAnswer
 std_wrapper_is_const_synchronizable(std::meta::info type) {
     if (is_synchronizable_type(type))
-        return true;
+        return {};
 
     for (std::meta::info wrapped : wrapped_types_of(type))
         if (!is_synchronizable_type(std::meta::add_const(wrapped)))
-            return false;
+            return "wraps a type that is not readable from several threads "
+                      "at once";
 
-    return true;
+    return {};
 }
 
 // A wrapper owns what it wraps. No borrowed_range test here, unlike the
 // structural walk: not one of the templates listed above is a view over
 // someone else's storage.
-inline consteval bool std_wrapper_is_lifetime_aware(std::meta::info type) {
+inline consteval TraitAnswer
+std_wrapper_is_lifetime_aware(std::meta::info type) {
     for (std::meta::info wrapped : wrapped_types_of(type))
         if (!is_lifetime_aware_type(wrapped))
-            return false;
+            return "wraps a type that borrows instead of keeping its data "
+                      "alive";
 
-    return true;
+    return {};
 }
 
 }
 
 template <detail::std_wrapper T>
-struct is_sendable<T>
-    : std::bool_constant<detail::std_wrapper_is_sendable(^^T)> {};
+struct is_sendable<T> {
+    static constexpr TraitAnswer value = detail::std_wrapper_is_sendable(^^T);
+};
 
 template <detail::std_wrapper T>
-struct is_synchronizable<const T>
-    : std::bool_constant<detail::std_wrapper_is_const_synchronizable(^^T)> {};
+struct is_synchronizable<const T> {
+    static constexpr TraitAnswer value = detail::std_wrapper_is_const_synchronizable(^^T);
+};
 
 template <detail::std_wrapper T>
-struct is_lifetime_aware<T>
-    : std::bool_constant<detail::std_wrapper_is_lifetime_aware(^^T)> {};
+struct is_lifetime_aware<T> {
+    static constexpr TraitAnswer value = detail::std_wrapper_is_lifetime_aware(^^T);
+};
 
 }

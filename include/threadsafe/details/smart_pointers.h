@@ -10,20 +10,36 @@
 namespace threadsafe {
 
 template <class T>
-struct is_sendable<std::default_delete<T>> : std::true_type {};
+struct is_sendable<std::default_delete<T>> {
+    static constexpr TraitAnswer value = {};
+};
 
 template <class T, class D>
-struct is_sendable<std::unique_ptr<T, D>>
-    : std::bool_constant<
-          is_sendable_v<std::remove_all_extents_t<T>> && is_sendable_v<D>
-          && detail::dynamic_type_is_known<std::remove_all_extents_t<T>>> {};
+struct is_sendable<std::unique_ptr<T, D>> {
+    static constexpr TraitAnswer value = []{
+        if (const auto value = is_sendable_v<std::remove_all_extents_t<T>>; !value)
+            return value;
+
+        if (const auto value = is_sendable_v<D>; !value)
+            return value;
+
+        return detail::dynamic_type_is_known<std::remove_all_extents_t<T>>;
+    }();
+};
+
 
 template <class T, class D>
-struct is_lifetime_aware<std::unique_ptr<T, D>>
-    : std::bool_constant<
-          is_lifetime_aware_v<std::remove_all_extents_t<T>>
-          && is_lifetime_aware_v<D>
-          && detail::dynamic_type_is_known<std::remove_all_extents_t<T>>> {};
+struct is_lifetime_aware<std::unique_ptr<T, D>> {
+    static constexpr TraitAnswer value = []{
+        if (const auto value = is_lifetime_aware_v<std::remove_all_extents_t<T>>; !value)
+            return value;
+
+        if (const auto value = is_lifetime_aware_v<D>; !value)
+            return value;
+
+        return detail::dynamic_type_is_known<std::remove_all_extents_t<T>>;
+    }();
+};
 
 template <class T>
 struct is_sendable<std::shared_ptr<T>>
@@ -38,7 +54,9 @@ struct is_sendable<std::reference_wrapper<T>>
     : is_synchronizable<std::remove_cv_t<T>> {};
 
 template <class T>
-struct is_synchronizable<const std::default_delete<T>> : std::true_type {};
+struct is_synchronizable<const std::default_delete<T>> {
+    static constexpr TraitAnswer value = {};
+};
 
 // The one indirection that trusts the pointee's const: unique ownership means no
 // other alias can write through it. That trust needs the dynamic type, exactly as
@@ -46,10 +64,17 @@ struct is_synchronizable<const std::default_delete<T>> : std::true_type {};
 // walk never saw.
 template <class T, class D>
 struct is_synchronizable<const std::unique_ptr<T, D>>
-    : std::bool_constant<
-          is_synchronizable_v<std::remove_all_extents_t<T>>
-          && is_synchronizable_v<const D>
-          && detail::dynamic_type_is_known<std::remove_all_extents_t<T>>> {};
+{
+    static constexpr TraitAnswer value = []{
+        if (const auto value = is_synchronizable_v<std::remove_all_extents_t<T>>; !value)
+            return value;
+
+        if (const auto value = is_synchronizable_v<const D>; !value)
+            return value;
+
+        return detail::dynamic_type_is_known<std::remove_all_extents_t<T>>;
+    }();
+};
 
 template <class T>
 struct is_synchronizable<const std::shared_ptr<T>>

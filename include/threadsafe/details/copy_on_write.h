@@ -40,19 +40,16 @@ private:
     std::shared_ptr<T> ptr_;
 };
 
-namespace detail {
+// The block is shared, so a reader of one copy reads through another's const:
+// sending a copy_on_write needs the T to be both sendable and read-safe.
 template <class T>
-consteval bool cow_is_sendable() {
-    if constexpr (is_sendable_v<T>)
+struct is_sendable<copy_on_write<T>> {
+    static constexpr TraitAnswer value = [] {
+        if (const auto answer = is_sendable_v<T>; !answer)
+            return answer;
         return is_synchronizable_v<const T>;
-    else
-        return false;
-}
-}
-
-template <class T>
-struct is_sendable<copy_on_write<T>>
-    : std::bool_constant<detail::cow_is_sendable<T>()> {};
+    }();
+};
 
 template <class T>
 struct is_lifetime_aware<copy_on_write<T>> : is_lifetime_aware<T> {};
