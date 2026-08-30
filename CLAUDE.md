@@ -71,6 +71,16 @@ reason is about the type at hand — a pointer whose const stops at it, a
 user-written copy constructor, a closure with captures — the reason replaces
 the inner one and no step is added.
 
+The structural prepends live in one place per shape of walk:
+`detail::walk_bases_and_members` for the bases and members of a class, and
+`detail::walk_wrapped_types` for the type arguments of a std wrapper. Each
+takes the question to ask — `[](info member) { return
+is_sendable_type(remove_cv(type_of(member))); }` — and the callback answers
+about that member alone; the walk adds the step. A trait's walk therefore says
+only which question it asks, never which step it owes. The `is_unsafe_<trait>`
+specializations keep their own `prepend_path`: their step is a shape of the
+language (`*`, `&`, `[]`), not a hop the walk took.
+
 ### The trait — which question the reason answers
 
 A reason also remembers the trait that produced it. Each `_v` stamps its own
