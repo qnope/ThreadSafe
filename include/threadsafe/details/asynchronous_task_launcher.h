@@ -3,6 +3,8 @@
 #include <concepts>
 #include <meta>
 #include <stop_token>
+#include <string>
+#include <string_view>
 #include <thread>
 #include <type_traits>
 #include <utility>
@@ -33,6 +35,17 @@ concept launchable_scoped_task = ownable_by_launcher<F, Args...>
 
 namespace detail {
 
+// Names the trait that rejected the type. On this path the message is built and
+// thrown, never stored, so it may be composed -- unlike the reason a trait
+// carries.
+inline consteval void require(TraitAnswer answer, std::string_view trait,
+                              std::meta::info type) {
+    if (!answer)
+        throw std::meta::exception(
+            std::string(trait) + ": " + std::string(answer.error_message),
+            type);
+}
+
 // Replays the concept one assertion at a time, in reading order — the callable,
 // then the arguments — so the first failing trait names the culprit. The final
 // throw is unreachable while the concept and this function agree; it keeps the
@@ -57,10 +70,10 @@ consteval void assert_ownable_by_launcher() {
 template <class F, class... Args>
 consteval void explain_launch_task() {
     assert_ownable_by_launcher<F, Args...>();
-    assert_sendable<F>();
-    assert_lifetime_aware<F>();
-    (assert_sendable<Args>(), ...);
-    (assert_lifetime_aware<Args>(), ...);
+    require(is_sendable_v<F>, "is_sendable", ^^F);
+    require(is_lifetime_aware_v<F>, "is_lifetime_aware", ^^F);
+    (require(is_sendable_v<Args>, "is_sendable", ^^Args), ...);
+    (require(is_lifetime_aware_v<Args>, "is_lifetime_aware", ^^Args), ...);
 
     throw std::meta::exception(
         u8"launch_task rejects this call but every trait holds", ^^F);
@@ -69,8 +82,8 @@ consteval void explain_launch_task() {
 template <class F, class... Args>
 consteval void explain_launch_scoped_task() {
     assert_ownable_by_launcher<F, Args...>();
-    assert_sendable<F>();
-    (assert_sendable<Args>(), ...);
+    require(is_sendable_v<F>, "is_sendable", ^^F);
+    (require(is_sendable_v<Args>, "is_sendable", ^^Args), ...);
 
     throw std::meta::exception(
         u8"launch_scoped_task rejects this call but every trait holds", ^^F);

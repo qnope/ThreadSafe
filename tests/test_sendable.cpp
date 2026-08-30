@@ -127,9 +127,13 @@ enum class Color { red, green };
 }
 
 template <>
-struct threadsafe::is_synchronizable<SyncType> : std::true_type {};
+struct threadsafe::is_synchronizable<SyncType> {
+    static constexpr threadsafe::TraitAnswer value = {};
+};
 template <>
-struct threadsafe::is_sendable<OptIn> : std::true_type {};
+struct threadsafe::is_sendable<OptIn> {
+    static constexpr threadsafe::TraitAnswer value = {};
+};
 
 using threadsafe::is_sendable_v;
 

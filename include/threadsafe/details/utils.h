@@ -1,74 +1,37 @@
 #pragma once
 
 #include <meta>
-#include <string>
 #include <string_view>
 #include <type_traits>
 
+namespace threadsafe {
+
+// What every trait answers: yes, or the reason it is no.
+//
+// The reason is a plain pointer into static storage, and the promotion is what
+// puts it there: std::meta::extract reads a trait's answer back out of the
+// substituted variable template, and it only reads a structural type — which a
+// std::string_view, holding its two members privately, is not.
+struct TraitAnswer {
+    constexpr TraitAnswer() = default;
+
+    consteval TraitAnswer(const char *reason)
+        : error_message(std::define_static_string(std::string_view(reason))) {}
+
+    constexpr explicit operator bool() const {
+        return error_message == nullptr;
+    }
+
+    const char *error_message = nullptr;
+};
+
+}
+
 namespace threadsafe::detail {
 
-inline consteval std::u8string type_name(std::meta::info type) {
-    return std::u8string(std::meta::u8display_string_of(type));
-}
-
-inline consteval std::u8string member_name(std::meta::info member) {
-    if (std::meta::has_identifier(member))
-        return std::u8string(std::meta::u8identifier_of(member));
-    return u8"<unnamed>";
-}
-
-// The subject of a rejection — a data member, a base, or the type itself —
-// spelled the way the message opens on it.
-inline consteval std::u8string describe(std::meta::info subject) {
-    if (std::meta::is_nonstatic_data_member(subject))
-        return u8"member `" + member_name(subject) + u8"` of type "
-             + type_name(std::meta::type_of(subject));
-
-    if (std::meta::is_base(subject))
-        return u8"base class " + type_name(std::meta::type_of(subject));
-
-    return type_name(subject);
-}
-
-// One hop of the walk down to the culprit, named the way the user wrote it: the
-// member or the base, with the type it stands for.
-inline consteval std::u8string path_step(std::meta::info subject) {
-    if (std::meta::is_nonstatic_data_member(subject))
-        return u8"::" + member_name(subject) + u8" ("
-             + type_name(std::meta::type_of(subject)) + u8")";
-
-    if (std::meta::is_base(subject))
-        return u8"::(base " + type_name(std::meta::type_of(subject)) + u8")";
-
-    // The subject is the type itself — a cv-qualified spelling, or an array of
-    // the type walked next. The same object under another name: no step.
-    return {};
-}
-
-// The reason continues the sentence the subject opens: reject(member, u8"is not
-// sendable") reads as "member `borrowed` of type int * is not sendable".
-//
-// A path opens that sentence instead — its last step already names the subject,
-// and it names every step taken to reach it: "Error::ptr (IntPtr)::ptr (int *)
-// is not sendable".
-[[noreturn]] inline consteval void reject(std::meta::info subject,
-                                          std::u8string_view reason,
-                                          std::u8string_view path = {}) {
-    throw std::meta::exception(
-        (path.empty() ? describe(subject) : std::u8string(path)) + u8" "
-            + std::u8string(reason),
-        subject);
-}
-
-// Reject a subobject the path has not stepped onto yet, on a reason that is
-// terminal — nothing deeper to walk, so the path stops here.
-[[noreturn]] inline consteval void reject_at(std::meta::info subject,
-                                             std::u8string_view reason,
-                                             const std::u8string &path) {
-    if (path.empty())
-        reject(subject, reason);
-
-    reject(subject, reason, path + path_step(subject));
+inline consteval TraitAnswer trait_value(std::meta::info trait,
+                                         std::meta::info type) {
+    return std::meta::extract<TraitAnswer>(std::meta::substitute(trait, {type}));
 }
 
 // A structural trait walks the members of the *static* type. Through an
@@ -80,24 +43,26 @@ inline consteval std::u8string path_step(std::meta::info subject) {
 // they are asked only once completeness is known. An incomplete pointee cannot be
 // judged at all, which is exactly the case this guard exists for.
 template <class T>
-consteval bool compute_dynamic_type_is_known() {
+consteval TraitAnswer compute_dynamic_type_is_known() {
     // void erases the type outright: the object behind it is of some other
     // type entirely, and nothing here names it. That is the question this
     // guard asks, so the answer is no.
     if constexpr (std::is_void_v<T>)
-        return false;
+        return "points at a void: nothing here names the object actually "
+               "there";
     else if constexpr (!std::meta::is_complete_type(^^T))
-        return false;
+        return "points at an incomplete type, so the object actually there "
+               "cannot be judged at all";
+    else if constexpr (std::is_polymorphic_v<T> && !std::is_final_v<T>)
+        return "points at a polymorphic non-final type: the object actually "
+               "there may be of a derived type, whose members the walk never "
+               "saw; make the pointee final, or specialize the trait";
     else
-        return !std::is_polymorphic_v<T> || std::is_final_v<T>;
+        return {};
 }
 
 template <class T>
-constexpr bool dynamic_type_is_known = compute_dynamic_type_is_known<T>();
-
-inline consteval bool trait_value(std::meta::info trait, std::meta::info type) {
-    return std::meta::extract<bool>(std::meta::substitute(trait, {type}));
-}
+constexpr TraitAnswer dynamic_type_is_known = compute_dynamic_type_is_known<T>();
 
 // Mostly for closure type.
 inline consteval bool has_unreflectable_state(std::meta::info type) {
@@ -136,20 +101,25 @@ inline consteval bool may_hijack_copy_move(std::meta::info member) {
             && std::meta::operator_of(member) == std::meta::op_equals);
 }
 
-inline consteval bool
-has_only_default_copy_move_destroy(std::meta::info type) {
+inline consteval TraitAnswer is_default_type(std::meta::info type) {
     const auto context = std::meta::access_context::unchecked();
+
     for (std::meta::info member : std::meta::members_of(type, context)) {
         if (may_hijack_copy_move(member))
-            return false;
+            return "a constructor or assignment template may be selected as "
+                      "a copy or a move; write the special members out, or "
+                      "specialize the trait";
 
         if (!is_copy_move_destroy_member(member))
             continue;
 
         if (!std::meta::is_defaulted(member) && !std::meta::is_deleted(member))
-            return false;
+            return "a user-written copy, move or destructor can share state "
+                      "the members do not show; specialize the trait to state "
+                      "the intent";
     }
-    return true;
+
+    return {};
 }
 
 }
