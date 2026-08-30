@@ -190,9 +190,6 @@ static_assert(is_sendable_v<DeletedCopy>,
               "is_sendable — a deleted copy constructor does not block: deleting "
               "an operation cannot introduce sharing");
 
-// A constructor or operator= template is never a copy or move member, but it
-// can be selected in place of one: deduced from a non-const lvalue it takes
-// T&, an exact match the implicit const T& overload cannot beat.
 static_assert(!std::is_trivially_copy_constructible_v<ForwardingCtor>
                   || !std::is_trivially_constructible_v<ForwardingCtor,
                                                         ForwardingCtor&>,
@@ -230,9 +227,6 @@ static_assert(!is_sendable_v<Node>,
 static_assert(is_sendable_v<OptIn>,
               "is_sendable — explicit specialization beats the computed default");
 
-// Callables. There is no separate is_safe_callable: handing a callable to
-// another thread is sending it, so these are the same rules as above applied to
-// class types that happen to have an operator().
 static_assert(is_sendable_v<void()>,
               "is_sendable — function types are synchronizable, hence sendable");
 static_assert(is_sendable_v<void (*const)()>,

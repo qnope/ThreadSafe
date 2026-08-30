@@ -15,8 +15,6 @@
 
 namespace threadsafe {
 
-// The launcher takes its callable and its arguments by value: owning them is
-// what lets it hand them to a thread, and owning them means moving them in.
 template <class F, class... Args>
 concept ownable_by_launcher =
     std::move_constructible<F> && (std::move_constructible<Args> && ...);
@@ -35,9 +33,6 @@ concept launchable_scoped_task = ownable_by_launcher<F, Args...>
 
 namespace detail {
 
-// Names the trait that rejected the type. On this path the message is built and
-// thrown, never stored, so it may be composed -- unlike the reason a trait
-// carries.
 inline consteval void require(TraitAnswer answer, std::string_view trait,
                               std::meta::info type) {
     if (!answer)
@@ -46,10 +41,6 @@ inline consteval void require(TraitAnswer answer, std::string_view trait,
             type);
 }
 
-// Replays the concept one assertion at a time, in reading order — the callable,
-// then the arguments — so the first failing trait names the culprit. The final
-// throw is unreachable while the concept and this function agree; it keeps the
-// fallback honest should they ever drift apart.
 template <class F, class... Args>
 consteval void assert_ownable_by_launcher() {
     if (!std::move_constructible<F>)
@@ -103,18 +94,11 @@ public:
         threads_.emplace_back(std::move(f), std::move(args)...);
     }
 
-    // Fallback: the constrained overload is more constrained, so it always wins
-    // when it applies. This one is instantiated only on a rejection, and exists
-    // only to name it — instantiating it is always a compile error.
     template <typename F, typename... Args>
     void launch_task(F, Args...) {
         detail::explain_launch_task<F, Args...>();
     }
 
-    // PRECONDITION: f must not outlive its own invocation — it must not store a
-    // reference to any argument beyond the call, nor hand one to a thread it does
-    // not itself join. The traits cannot check this; the join bounds the
-    // invocation, not the borrow.
     template <typename F, typename... Args>
         requires launchable_scoped_task<F, Args...>
     void launch_scoped_task(F f, Args... args) {

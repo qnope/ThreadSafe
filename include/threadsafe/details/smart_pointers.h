@@ -27,7 +27,6 @@ struct is_unsafe_sendable<std::unique_ptr<T, D>> {
     }();
 };
 
-
 template <class T, class D>
 struct is_unsafe_lifetime_aware<std::unique_ptr<T, D>> {
     static constexpr TraitAnswer value = []{
@@ -58,10 +57,6 @@ struct is_unsafe_synchronizable<const std::default_delete<T>> {
     static constexpr TraitAnswer value = {};
 };
 
-// The one indirection that trusts the pointee's const: unique ownership means no
-// other alias can write through it. That trust needs the dynamic type, exactly as
-// the is_sendable rule above does -- a derived object may add a mutable member the
-// walk never saw.
 template <class T, class D>
 struct is_unsafe_synchronizable<const std::unique_ptr<T, D>>
 {

@@ -11,13 +11,6 @@
 
 namespace threadsafe {
 
-// The one way to answer for a type the structural walk cannot read. The
-// primary is empty: specializing it is what claims the type, and the claim is
-// final, whether it says yes or no.
-//
-// Everything the library knows about a concrete type is written here rather
-// than on is_lifetime_aware, so that the word `unsafe` appears wherever
-// knowledge is asserted instead of proved.
 template <class T>
 struct is_unsafe_lifetime_aware {};
 
@@ -25,9 +18,6 @@ template <class T>
 constexpr TraitAnswer is_unsafe_lifetime_aware_v
     = detail::unsafe_answer<is_unsafe_lifetime_aware, T>();
 
-// The info-level face of the trait, named after the predicates of <meta>. Same
-// answer as is_unsafe_lifetime_aware_v<T>, for code written on the reflection
-// side.
 inline consteval TraitAnswer
 is_unsafe_lifetime_aware_type(std::meta::info type) {
     return detail::trait_value(^^is_unsafe_lifetime_aware_v, type);
@@ -78,9 +68,6 @@ struct is_lifetime_aware<T[N]> : is_lifetime_aware<std::remove_cv_t<T>> {};
 template <class T>
 struct is_lifetime_aware<T[]> : is_lifetime_aware<std::remove_cv_t<T>> {};
 
-// Ownership is transitive: the control block keeps the T alive, but a T that
-// only borrows still borrows -- and that answer is read off the static type, so
-// the dynamic type must be known for it to hold of the object actually pointed to.
 template <class T>
 struct is_unsafe_lifetime_aware<std::shared_ptr<T>> {
     using pointee = std::remove_cv_t<std::remove_all_extents_t<T>>;
@@ -108,24 +95,18 @@ struct is_unsafe_lifetime_aware<std::weak_ptr<T>> {
 template <class T>
 concept lifetime_aware = bool(is_lifetime_aware_v<T>);
 
-// The info-level face of the trait, named after the predicates of <meta>. Same
-// answer as is_lifetime_aware_v<T>, for code written on the reflection side.
 inline consteval TraitAnswer is_lifetime_aware_type(std::meta::info type) {
     return detail::trait_value(^^is_lifetime_aware_v, type);
 }
 
 namespace detail {
 
-// The structural default: a type keeps its data alive when every base and every
-// member does. A default-constructed answer means yes; otherwise it says why not.
 inline consteval TraitAnswer diagnose_is_lifetime_aware(std::meta::info type) {
     using namespace std::meta;
 
     const auto context = access_context::unchecked();
     const auto unqualified = remove_cv(type);
 
-    // A cv-qualified type reaches the primary template even when its
-    // unqualified form has a specialization; forward so both agree.
     if (unqualified != type)
         return is_lifetime_aware_type(unqualified);
 
@@ -143,8 +124,6 @@ inline consteval TraitAnswer diagnose_is_lifetime_aware(std::meta::info type) {
         return "is a borrowed range: a view over someone else's storage, it "
                   "does not keep its elements alive";
 
-    // A scalar owns whatever it is; the borrowing shapes -- references, raw
-    // pointers -- answer through their own specializations above.
     if (!is_class_type(type) && !is_union_type(type))
         return {};
 

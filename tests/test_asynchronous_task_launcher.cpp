@@ -13,9 +13,6 @@ struct NonSendable {
     NonSendable(NonSendable const&) {}
 };
 
-// The launcher carries an explaining fallback overload, so a rejected call is
-// still a well-formed one — the concepts, not a requires-expression, are what
-// state the rule.
 template <class F, class... Args>
 constexpr bool can_launch_task = threadsafe::launchable_task<F, Args...>;
 
