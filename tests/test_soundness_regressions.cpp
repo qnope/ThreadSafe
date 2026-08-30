@@ -76,7 +76,10 @@ constexpr bool can_launch_task = threadsafe::launchable_task<F, Args...>;
 
 }
 
-THREADSAFE_UNSAFE_ASSERT_SYNCHRONIZABLE(SyncType);
+template <>
+struct threadsafe::is_unsafe_synchronizable<SyncType> {
+    static constexpr threadsafe::TraitAnswer value = {};
+};
 
 using threadsafe::is_lifetime_aware_v;
 using threadsafe::is_sendable_v;

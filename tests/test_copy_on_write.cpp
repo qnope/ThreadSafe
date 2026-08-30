@@ -60,7 +60,10 @@ template <class T>
 using cow = threadsafe::copy_on_write<T>;
 }
 
-THREADSAFE_UNSAFE_ASSERT_SYNCHRONIZABLE(SyncCache);
+template <>
+struct threadsafe::is_unsafe_synchronizable<SyncCache> {
+    static constexpr threadsafe::TraitAnswer value = {};
+};
 
 using threadsafe::is_lifetime_aware_v;
 using threadsafe::is_sendable_v;

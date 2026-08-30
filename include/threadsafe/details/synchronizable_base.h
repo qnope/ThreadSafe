@@ -8,22 +8,52 @@
 
 namespace threadsafe {
 
+// The one way to say that a T may be used from several threads at once. The
+// primary is empty: specializing it is what claims the type, and the claim is
+// final, whether it says yes or no.
+//
+// Everything the library knows about a concrete type is written here rather
+// than on is_synchronizable, so that the word `unsafe` appears wherever
+// knowledge is asserted instead of proved.
 template <class T>
-struct is_unsafe_synchronizable {
-    static constexpr TraitAnswer value = "is_unsafe_synchronizable<T> is opt-in: specialize it, or use "
-              "THREADSAFE_UNSAFE_ASSERT_SYNCHRONIZABLE";
-};
+struct is_unsafe_synchronizable {};
 
+// Vouched for as writable from several threads at once, so also as readable.
+// An unclaimed T leaves the base without a `value`, so the const form is
+// unclaimed in turn — the empty primary propagates through inheritance.
 template <class T>
 struct is_unsafe_synchronizable<const T> : is_unsafe_synchronizable<T> {};
 
 template <class T>
 constexpr TraitAnswer is_unsafe_synchronizable_v
-    = is_unsafe_synchronizable<T>::value;
+    = detail::unsafe_answer<is_unsafe_synchronizable, T>();
+
+// The info-level face of the trait, named after the predicates of <meta>. Same
+// answer as is_unsafe_synchronizable_v<T>, for code written on the reflection
+// side.
+inline consteval TraitAnswer
+is_unsafe_synchronizable_type(std::meta::info type) {
+    return detail::trait_value(^^is_unsafe_synchronizable_v, type);
+}
+
+namespace detail {
+
+// is_synchronizable<T> has no structural definition to fall back on: no walk
+// over members can show that concurrent writes are safe. Someone has to say so.
+template <class T>
+consteval TraitAnswer diagnose_is_synchronizable() {
+    if (const auto vouched = is_unsafe_synchronizable_v<T>; vouched.answered)
+        return vouched;
+
+    return "is_unsafe_synchronizable<T> is opt-in: specialize it to vouch for "
+           "a type that carries its own synchronization";
+}
+
+}
 
 template <class T>
 struct is_synchronizable {
-    static constexpr TraitAnswer value = is_unsafe_synchronizable_v<T>;
+    static constexpr TraitAnswer value = detail::diagnose_is_synchronizable<T>();
 };
 
 template <class T>
@@ -41,9 +71,3 @@ inline consteval TraitAnswer is_synchronizable_type(std::meta::info type) {
 }
 
 }
-
-#define THREADSAFE_UNSAFE_ASSERT_SYNCHRONIZABLE(...)                \
-    template <>                                                     \
-    struct threadsafe::is_unsafe_synchronizable<__VA_ARGS__> {      \
-        static constexpr threadsafe::TraitAnswer value = {};        \
-    };

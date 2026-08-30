@@ -25,7 +25,7 @@ constexpr bool can_launch_scoped_task =
 }
 
 template <>
-struct threadsafe::is_synchronizable<SyncCounter> {
+struct threadsafe::is_unsafe_synchronizable<SyncCounter> {
     static constexpr threadsafe::TraitAnswer value = {};
 };
 

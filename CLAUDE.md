@@ -22,13 +22,33 @@ cmake --build build
 
 ## Architecture: the traits
 
-Each trait is a class template deriving from `std::bool_constant`, paired with a
-`_v` constexpr variable — the shape of `std::is_same` / `std::is_same_v`. Write
-`is_sendable_v<T>` to ask the question; specialize `is_sendable<T>` to answer it.
+Each trait is a class template paired with a `_v` constexpr variable — the
+shape of `std::is_same` / `std::is_same_v`. Write `is_sendable_v<T>` to ask the
+question. The answer is a `TraitAnswer`, not a `bool`: yes, or the reason it is
+no. (A third state, *unanswered*, belongs to the unsafe traits below.)
 
 The recursion reads the traits reflectively, through the `_v` variable
 (`detail::trait_value` substitutes `^^is_sendable_v`), so a specialization
 written in a user's translation unit still reaches it.
+
+### `is_unsafe_<trait>` — the one customization point
+
+The safe traits are **closed**: `is_sendable`, `is_synchronizable` and
+`is_lifetime_aware` hold only their own definition — the structural walk and
+the language shapes (`T&`, `T*`, `T[N]`, `const T`, function types).
+
+Everything else is asserted, not proved, and is written as a specialization of
+`is_unsafe_sendable` / `is_unsafe_synchronizable` / `is_unsafe_lifetime_aware`.
+Their primary template is **empty**: specializing it is what claims the type,
+and the claim is final — yes or no, the safe trait returns it verbatim. A type
+nobody claimed has no `value` to read, which is the unanswered state.
+
+The library holds itself to that rule: `std::vector`, `std::unique_ptr`,
+`std::atomic`, `synchronized_value`, `copy_on_write` are all vouched for this
+way. The word `unsafe` appears wherever knowledge is asserted instead of proved.
+
+Because the claim is read by instantiating `is_unsafe_<trait><T>`, the
+specialization must be written before the first question about that `T`.
 
 ### `is_synchronizable<T>` (≈ Rust `Sync`)
 

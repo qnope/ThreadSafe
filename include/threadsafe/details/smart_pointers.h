@@ -10,12 +10,12 @@
 namespace threadsafe {
 
 template <class T>
-struct is_sendable<std::default_delete<T>> {
+struct is_unsafe_sendable<std::default_delete<T>> {
     static constexpr TraitAnswer value = {};
 };
 
 template <class T, class D>
-struct is_sendable<std::unique_ptr<T, D>> {
+struct is_unsafe_sendable<std::unique_ptr<T, D>> {
     static constexpr TraitAnswer value = []{
         if (const auto value = is_sendable_v<std::remove_all_extents_t<T>>; !value)
             return value;
@@ -29,7 +29,7 @@ struct is_sendable<std::unique_ptr<T, D>> {
 
 
 template <class T, class D>
-struct is_lifetime_aware<std::unique_ptr<T, D>> {
+struct is_unsafe_lifetime_aware<std::unique_ptr<T, D>> {
     static constexpr TraitAnswer value = []{
         if (const auto value = is_lifetime_aware_v<std::remove_all_extents_t<T>>; !value)
             return value;
@@ -42,19 +42,19 @@ struct is_lifetime_aware<std::unique_ptr<T, D>> {
 };
 
 template <class T>
-struct is_sendable<std::shared_ptr<T>>
+struct is_unsafe_sendable<std::shared_ptr<T>>
     : is_synchronizable<std::remove_cv_t<std::remove_all_extents_t<T>>> {};
 
 template <class T>
-struct is_sendable<std::weak_ptr<T>>
+struct is_unsafe_sendable<std::weak_ptr<T>>
     : is_synchronizable<std::remove_cv_t<std::remove_all_extents_t<T>>> {};
 
 template <class T>
-struct is_sendable<std::reference_wrapper<T>>
+struct is_unsafe_sendable<std::reference_wrapper<T>>
     : is_synchronizable<std::remove_cv_t<T>> {};
 
 template <class T>
-struct is_synchronizable<const std::default_delete<T>> {
+struct is_unsafe_synchronizable<const std::default_delete<T>> {
     static constexpr TraitAnswer value = {};
 };
 
@@ -63,7 +63,7 @@ struct is_synchronizable<const std::default_delete<T>> {
 // the is_sendable rule above does -- a derived object may add a mutable member the
 // walk never saw.
 template <class T, class D>
-struct is_synchronizable<const std::unique_ptr<T, D>>
+struct is_unsafe_synchronizable<const std::unique_ptr<T, D>>
 {
     static constexpr TraitAnswer value = []{
         if (const auto value = is_synchronizable_v<std::remove_all_extents_t<T>>; !value)
@@ -77,15 +77,15 @@ struct is_synchronizable<const std::unique_ptr<T, D>>
 };
 
 template <class T>
-struct is_synchronizable<const std::shared_ptr<T>>
+struct is_unsafe_synchronizable<const std::shared_ptr<T>>
     : is_synchronizable<std::remove_cv_t<std::remove_all_extents_t<T>>> {};
 
 template <class T>
-struct is_synchronizable<const std::weak_ptr<T>>
+struct is_unsafe_synchronizable<const std::weak_ptr<T>>
     : is_synchronizable<std::remove_cv_t<std::remove_all_extents_t<T>>> {};
 
 template <class T>
-struct is_synchronizable<const std::reference_wrapper<T>>
+struct is_unsafe_synchronizable<const std::reference_wrapper<T>>
     : is_synchronizable<std::remove_cv_t<T>> {};
 
 }

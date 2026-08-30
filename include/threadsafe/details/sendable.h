@@ -9,17 +9,19 @@
 
 namespace threadsafe {
 
-// The opt-in escape hatch: a type whose sendability the structural walk cannot
-// see — a handle, a std::allocator — is vouched for here rather than made to
-// look sendable.
+// The one way to answer for a type the structural walk cannot read — a handle,
+// a std::allocator, a std::vector. The primary is empty: specializing it is
+// what claims the type, and the claim is final, whether it says yes or no.
+//
+// Everything the library knows about a concrete type is written here rather
+// than on is_sendable, so that the word `unsafe` appears wherever knowledge is
+// asserted instead of proved. is_sendable itself holds only its definition.
 template <class T>
-struct is_unsafe_sendable {
-    static constexpr TraitAnswer value = "is_unsafe_sendable<T> is opt-in: specialize it to vouch for a "
-              "type the structural walk cannot read";
-};
+struct is_unsafe_sendable {};
 
 template <class T>
-constexpr TraitAnswer is_unsafe_sendable_v = is_unsafe_sendable<T>::value;
+constexpr TraitAnswer is_unsafe_sendable_v
+    = detail::unsafe_answer<is_unsafe_sendable, T>();
 
 inline consteval TraitAnswer is_unsafe_sendable_type(std::meta::info type) {
     return detail::trait_value(^^is_unsafe_sendable_v, type);
@@ -71,8 +73,8 @@ inline consteval TraitAnswer diagnose_is_sendable(std::meta::info type) {
 
     const auto context = access_context::unchecked();
 
-    if (is_unsafe_sendable_type(type))
-        return {};
+    if (const auto vouched = is_unsafe_sendable_type(type); vouched.answered)
+        return vouched;
 
     if (is_synchronizable_type(type) || is_scalar_type(type))
         return {};

@@ -127,11 +127,11 @@ enum class Color { red, green };
 }
 
 template <>
-struct threadsafe::is_synchronizable<SyncType> {
+struct threadsafe::is_unsafe_synchronizable<SyncType> {
     static constexpr threadsafe::TraitAnswer value = {};
 };
 template <>
-struct threadsafe::is_sendable<OptIn> {
+struct threadsafe::is_unsafe_sendable<OptIn> {
     static constexpr threadsafe::TraitAnswer value = {};
 };
 

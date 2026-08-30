@@ -52,11 +52,14 @@ struct ImmutableNode {
 }
 
 template <>
-struct threadsafe::is_synchronizable<SyncType> {
+struct threadsafe::is_unsafe_synchronizable<SyncType> {
     static constexpr threadsafe::TraitAnswer value = {};
 };
 
-THREADSAFE_UNSAFE_ASSERT_SYNCHRONIZABLE(const ImmutableNode);
+template <>
+struct threadsafe::is_unsafe_synchronizable<const ImmutableNode> {
+    static constexpr threadsafe::TraitAnswer value = {};
+};
 
 using threadsafe::is_synchronizable_v;
 

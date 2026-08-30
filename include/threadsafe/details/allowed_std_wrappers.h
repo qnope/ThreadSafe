@@ -35,7 +35,8 @@ namespace detail {
 // An allow-list, not a deduction: nothing in reflection tells std::vector<T>
 // apart from a type that hides sharing behind the same arguments. This list is
 // only the membership test; the answer itself is written the way every other
-// answer in this library is written — as a specialization of the trait.
+// piece of asserted knowledge in this library is written — as a specialization
+// of is_unsafe_<trait>.
 inline constexpr std::meta::info allowed_std_wrappers[] = {
     ^^std::vector,        ^^std::deque,             ^^std::list,
     ^^std::forward_list,  ^^std::basic_string,      ^^std::map,
@@ -121,17 +122,17 @@ std_wrapper_is_lifetime_aware(std::meta::info type) {
 }
 
 template <detail::std_wrapper T>
-struct is_sendable<T> {
+struct is_unsafe_sendable<T> {
     static constexpr TraitAnswer value = detail::std_wrapper_is_sendable(^^T);
 };
 
 template <detail::std_wrapper T>
-struct is_synchronizable<const T> {
+struct is_unsafe_synchronizable<const T> {
     static constexpr TraitAnswer value = detail::std_wrapper_is_const_synchronizable(^^T);
 };
 
 template <detail::std_wrapper T>
-struct is_lifetime_aware<T> {
+struct is_unsafe_lifetime_aware<T> {
     static constexpr TraitAnswer value = detail::std_wrapper_is_lifetime_aware(^^T);
 };
 

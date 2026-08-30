@@ -13,13 +13,17 @@ namespace threadsafe {
 template <class F>
 concept function_type = std::is_function_v<F>;
 
+// A function is code, not state: there is nothing in it to race on. That is a
+// property of the language, so it belongs to the trait rather than to a vouch.
 template <function_type F>
 struct is_synchronizable<F> {
     static constexpr TraitAnswer value = {};
 };
 
+// An atomic synchronizes the T it holds — provided the T could be handed to
+// another thread in the first place.
 template <class T>
-struct is_synchronizable<std::atomic<T>> : is_sendable<T> {};
+struct is_unsafe_synchronizable<std::atomic<T>> : is_sendable<T> {};
 
 namespace detail {
 consteval TraitAnswer diagnose_is_const_synchronizable(std::meta::info type);
@@ -53,10 +57,11 @@ diagnose_is_const_synchronizable(std::meta::info type) {
     const auto context = access_context::unchecked();
     type = remove_cv(type);
 
-    // Vouched for as read-only — the opt-in the const question has of its own,
+    // Claimed as read-only — the opt-in the const question has of its own,
     // beside the one full synchronizability carries.
-    if (trait_value(^^is_unsafe_synchronizable_v, add_const(type)))
-        return {};
+    if (const auto vouched = is_unsafe_synchronizable_type(add_const(type));
+        vouched.answered)
+        return vouched;
 
     if (is_synchronizable_type(type))
         return {};

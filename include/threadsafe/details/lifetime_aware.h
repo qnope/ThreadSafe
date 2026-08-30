@@ -11,6 +11,28 @@
 
 namespace threadsafe {
 
+// The one way to answer for a type the structural walk cannot read. The
+// primary is empty: specializing it is what claims the type, and the claim is
+// final, whether it says yes or no.
+//
+// Everything the library knows about a concrete type is written here rather
+// than on is_lifetime_aware, so that the word `unsafe` appears wherever
+// knowledge is asserted instead of proved.
+template <class T>
+struct is_unsafe_lifetime_aware {};
+
+template <class T>
+constexpr TraitAnswer is_unsafe_lifetime_aware_v
+    = detail::unsafe_answer<is_unsafe_lifetime_aware, T>();
+
+// The info-level face of the trait, named after the predicates of <meta>. Same
+// answer as is_unsafe_lifetime_aware_v<T>, for code written on the reflection
+// side.
+inline consteval TraitAnswer
+is_unsafe_lifetime_aware_type(std::meta::info type) {
+    return detail::trait_value(^^is_unsafe_lifetime_aware_v, type);
+}
+
 namespace detail {
 consteval TraitAnswer diagnose_is_lifetime_aware(std::meta::info type);
 }
@@ -46,7 +68,7 @@ struct is_lifetime_aware<F*> {
 };
 
 template <class T>
-struct is_lifetime_aware<std::reference_wrapper<T>> {
+struct is_unsafe_lifetime_aware<std::reference_wrapper<T>> {
     static constexpr TraitAnswer value = "std::reference_wrapper borrows its referent instead of keeping it alive";
 };
 
@@ -60,7 +82,7 @@ struct is_lifetime_aware<T[]> : is_lifetime_aware<std::remove_cv_t<T>> {};
 // only borrows still borrows -- and that answer is read off the static type, so
 // the dynamic type must be known for it to hold of the object actually pointed to.
 template <class T>
-struct is_lifetime_aware<std::shared_ptr<T>> {
+struct is_unsafe_lifetime_aware<std::shared_ptr<T>> {
     using pointee = std::remove_cv_t<std::remove_all_extents_t<T>>;
 
     static constexpr TraitAnswer value = [] {
@@ -72,7 +94,7 @@ struct is_lifetime_aware<std::shared_ptr<T>> {
 };
 
 template <class T>
-struct is_lifetime_aware<std::weak_ptr<T>> {
+struct is_unsafe_lifetime_aware<std::weak_ptr<T>> {
     using pointee = std::remove_cv_t<std::remove_all_extents_t<T>>;
 
     static constexpr TraitAnswer value = [] {
@@ -106,6 +128,10 @@ inline consteval TraitAnswer diagnose_is_lifetime_aware(std::meta::info type) {
     // unqualified form has a specialization; forward so both agree.
     if (unqualified != type)
         return is_lifetime_aware_type(unqualified);
+
+    if (const auto vouched = is_unsafe_lifetime_aware_type(type);
+        vouched.answered)
+        return vouched;
 
     if (is_array_type(type))
         return is_lifetime_aware_type(remove_cv(remove_extent(type)));

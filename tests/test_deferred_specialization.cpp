@@ -37,7 +37,10 @@ struct Holder {
 };
 }
 
-THREADSAFE_UNSAFE_ASSERT_SYNCHRONIZABLE(Opaque);
+template <>
+struct threadsafe::is_unsafe_synchronizable<Opaque> {
+    static constexpr threadsafe::TraitAnswer value = {};
+};
 
 static_assert(!is_sendable_v<int*>);
 static_assert(is_sendable_v<Holder>,

@@ -100,20 +100,20 @@ private:
 };
 
 template <class T>
-struct is_synchronizable<synchronized_value<T>> : is_sendable<T> {};
+struct is_unsafe_synchronizable<synchronized_value<T>> : is_sendable<T> {};
 
 template <class T>
-struct is_lifetime_aware<synchronized_value<T>> : is_lifetime_aware<T> {};
+struct is_unsafe_lifetime_aware<synchronized_value<T>> : is_lifetime_aware<T> {};
 
 // The guard holds the lock and a pointer into the value it guards: it belongs
 // to the thread that took the lock, and it keeps nothing alive.
 template <class T, class Lock>
-struct is_sendable<value_guard<T, Lock>> {
+struct is_unsafe_sendable<value_guard<T, Lock>> {
     static constexpr TraitAnswer value = "a value_guard holds a lock owned by the thread that took it";
 };
 
 template <class T, class Lock>
-struct is_lifetime_aware<value_guard<T, Lock>> {
+struct is_unsafe_lifetime_aware<value_guard<T, Lock>> {
     static constexpr TraitAnswer value = "a value_guard points into the synchronized_value it guards "
               "instead of keeping it alive";
 };

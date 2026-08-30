@@ -43,7 +43,7 @@ private:
 // The block is shared, so a reader of one copy reads through another's const:
 // sending a copy_on_write needs the T to be both sendable and read-safe.
 template <class T>
-struct is_sendable<copy_on_write<T>> {
+struct is_unsafe_sendable<copy_on_write<T>> {
     static constexpr TraitAnswer value = [] {
         if (const auto answer = is_sendable_v<T>; !answer)
             return answer;
@@ -52,6 +52,6 @@ struct is_sendable<copy_on_write<T>> {
 };
 
 template <class T>
-struct is_lifetime_aware<copy_on_write<T>> : is_lifetime_aware<T> {};
+struct is_unsafe_lifetime_aware<copy_on_write<T>> : is_lifetime_aware<T> {};
 
 }
