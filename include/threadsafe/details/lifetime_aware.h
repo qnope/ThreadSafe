@@ -39,21 +39,28 @@ template <class T>
 constexpr TraitAnswer is_lifetime_aware_v = is_lifetime_aware<T>::diagnose();
 
 template <class T>
-struct is_lifetime_aware<T&> {
+concept lifetime_aware = bool(is_lifetime_aware_v<T>);
+
+inline consteval TraitAnswer is_lifetime_aware_type(std::meta::info type) {
+    return detail::trait_value(^^is_lifetime_aware_v, type);
+}
+
+template <class T>
+struct is_unsafe_lifetime_aware<T&> {
     static consteval TraitAnswer diagnose() {
         return "References borrow their referent instead of keeping it alive";
     }
 };
 
 template <class T>
-struct is_lifetime_aware<T&&> {
+struct is_unsafe_lifetime_aware<T&&> {
     static consteval TraitAnswer diagnose() {
         return "References borrow their referent instead of keeping it alive";
     }
 };
 
 template <class T>
-struct is_lifetime_aware<T*> {
+struct is_unsafe_lifetime_aware<T*> {
     static consteval TraitAnswer diagnose() {
         return "Raw pointers borrow their pointee instead of keeping it alive";
     }
@@ -61,8 +68,22 @@ struct is_lifetime_aware<T*> {
 
 template <class F>
     requires std::is_function_v<F>
-struct is_lifetime_aware<F*> {
+struct is_unsafe_lifetime_aware<F*> {
     static consteval TraitAnswer diagnose() { return {}; }
+};
+
+template <class T, std::size_t N>
+struct is_unsafe_lifetime_aware<T[N]> {
+    static consteval TraitAnswer diagnose() {
+        return is_lifetime_aware_v<std::remove_cv_t<T>>;
+    }
+};
+
+template <class T>
+struct is_unsafe_lifetime_aware<T[]> {
+    static consteval TraitAnswer diagnose() {
+        return is_lifetime_aware_v<std::remove_cv_t<T>>;
+    }
 };
 
 template <class T>
@@ -70,20 +91,6 @@ struct is_unsafe_lifetime_aware<std::reference_wrapper<T>> {
     static consteval TraitAnswer diagnose() {
         return "std::reference_wrapper borrows its referent instead of "
                "keeping it alive";
-    }
-};
-
-template <class T, std::size_t N>
-struct is_lifetime_aware<T[N]> {
-    static consteval TraitAnswer diagnose() {
-        return is_lifetime_aware_v<std::remove_cv_t<T>>;
-    }
-};
-
-template <class T>
-struct is_lifetime_aware<T[]> {
-    static consteval TraitAnswer diagnose() {
-        return is_lifetime_aware_v<std::remove_cv_t<T>>;
     }
 };
 
@@ -111,13 +118,6 @@ struct is_unsafe_lifetime_aware<std::weak_ptr<T>> {
     }
 };
 
-template <class T>
-concept lifetime_aware = bool(is_lifetime_aware_v<T>);
-
-inline consteval TraitAnswer is_lifetime_aware_type(std::meta::info type) {
-    return detail::trait_value(^^is_lifetime_aware_v, type);
-}
-
 namespace detail {
 
 inline consteval TraitAnswer diagnose_is_lifetime_aware(std::meta::info type) {
@@ -132,9 +132,6 @@ inline consteval TraitAnswer diagnose_is_lifetime_aware(std::meta::info type) {
     if (const auto vouched = is_unsafe_lifetime_aware_type(type);
         vouched.answered)
         return vouched;
-
-    if (is_array_type(type))
-        return is_lifetime_aware_type(remove_cv(remove_extent(type)));
 
     if (is_void_type(type))
         return "void holds no value to own";
@@ -152,8 +149,8 @@ inline consteval TraitAnswer diagnose_is_lifetime_aware(std::meta::info type) {
 
     if (has_unreflectable_state(type))
         return "holds state reflection cannot see (a closure type with "
-                  "captures); specialize is_lifetime_aware to state the "
-                  "intent";
+                  "captures); specialize is_unsafe_lifetime_aware to state "
+                  "the intent";
 
     for (info base : bases_of(type, context))
         if (!is_lifetime_aware_type(type_of(base)))
