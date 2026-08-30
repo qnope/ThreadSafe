@@ -56,15 +56,22 @@ wrapped_types_of(std::meta::info type) {
     return wrapped;
 }
 
+template <class AskWrapped>
+consteval TraitAnswer walk_wrapped_types(std::meta::info type,
+                                         AskWrapped ask_wrapped) {
+    for (std::meta::info wrapped : wrapped_types_of(type))
+        if (const auto answer = ask_wrapped(wrapped); !answer)
+            return answer.prepend_path(path_step_of_type(wrapped));
+
+    return {};
+}
+
 inline consteval TraitAnswer std_wrapper_is_sendable(std::meta::info type) {
     if (is_synchronizable_type(type))
         return {};
 
-    for (std::meta::info wrapped : wrapped_types_of(type))
-        if (const auto answer = is_sendable_type(wrapped); !answer)
-            return answer.prepend_path(path_step_of_type(wrapped));
-
-    return {};
+    return walk_wrapped_types(
+        type, [](std::meta::info wrapped) { return is_sendable_type(wrapped); });
 }
 
 inline consteval TraitAnswer
@@ -72,22 +79,16 @@ std_wrapper_is_const_synchronizable(std::meta::info type) {
     if (is_synchronizable_type(type))
         return {};
 
-    for (std::meta::info wrapped : wrapped_types_of(type))
-        if (const auto answer
-            = is_synchronizable_type(std::meta::add_const(wrapped));
-            !answer)
-            return answer.prepend_path(path_step_of_type(wrapped));
-
-    return {};
+    return walk_wrapped_types(type, [](std::meta::info wrapped) {
+        return is_synchronizable_type(std::meta::add_const(wrapped));
+    });
 }
 
 inline consteval TraitAnswer
 std_wrapper_is_lifetime_aware(std::meta::info type) {
-    for (std::meta::info wrapped : wrapped_types_of(type))
-        if (const auto answer = is_lifetime_aware_type(wrapped); !answer)
-            return answer.prepend_path(path_step_of_type(wrapped));
-
-    return {};
+    return walk_wrapped_types(type, [](std::meta::info wrapped) {
+        return is_lifetime_aware_type(wrapped);
+    });
 }
 
 }

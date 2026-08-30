@@ -86,8 +86,6 @@ namespace detail {
 inline consteval TraitAnswer diagnose_is_sendable(std::meta::info type) {
     using namespace std::meta;
 
-    const auto context = access_context::unchecked();
-
     if (const auto unqualified = remove_cv(type); unqualified != type)
         return is_sendable_type(unqualified);
 
@@ -117,16 +115,12 @@ inline consteval TraitAnswer diagnose_is_sendable(std::meta::info type) {
                   "captures); specialize is_unsafe_sendable to state the "
                   "intent";
 
-    for (info base : bases_of(type, context))
-        if (const auto answer = is_sendable_type(type_of(base)); !answer)
-            return answer.prepend_path(path_step_of_base(type_of(base)));
-
-    for (info member : nonstatic_data_members_of(type, context))
-        if (const auto answer = is_sendable_type(remove_cv(type_of(member)));
-            !answer)
-            return answer.prepend_path(path_step_of_member(member));
-
-    return {};
+    return walk_bases_and_members(
+        type,
+        [](info base) { return is_sendable_type(type_of(base)); },
+        [](info member) {
+            return is_sendable_type(remove_cv(type_of(member)));
+        });
 }
 
 }

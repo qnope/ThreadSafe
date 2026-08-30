@@ -103,6 +103,25 @@ inline consteval std::string_view path_step_of_member(std::meta::info member) {
         + std::string(path_step_of_type(std::meta::type_of(member))) + ")");
 }
 
+template <class AskBase, class AskMember>
+consteval TraitAnswer walk_bases_and_members(std::meta::info type,
+                                             AskBase ask_base,
+                                             AskMember ask_member) {
+    const auto context = std::meta::access_context::unchecked();
+
+    for (std::meta::info base : std::meta::bases_of(type, context))
+        if (const auto answer = ask_base(base); !answer)
+            return answer.prepend_path(
+                path_step_of_base(std::meta::type_of(base)));
+
+    for (std::meta::info member :
+         std::meta::nonstatic_data_members_of(type, context))
+        if (const auto answer = ask_member(member); !answer)
+            return answer.prepend_path(path_step_of_member(member));
+
+    return {};
+}
+
 inline consteval TraitAnswer trait_value(std::meta::info trait,
                                          std::meta::info type) {
     return std::meta::extract<TraitAnswer>(std::meta::substitute(trait, {type}));

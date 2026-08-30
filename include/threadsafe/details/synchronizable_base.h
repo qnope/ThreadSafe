@@ -92,7 +92,6 @@ inline consteval TraitAnswer
 diagnose_is_const_synchronizable(std::meta::info type) {
     using namespace std::meta;
 
-    const auto context = access_context::unchecked();
     type = remove_cv(type);
 
     if (const auto vouched = is_unsafe_synchronizable_type(type);
@@ -130,37 +129,30 @@ diagnose_is_const_synchronizable(std::meta::info type) {
                   "captures); specialize is_unsafe_synchronizable to state "
                   "the intent";
 
-    for (info base : bases_of(type, context))
-        if (const auto answer = is_synchronizable_type(add_const(type_of(base)));
-            !answer)
-            return answer.prepend_path(path_step_of_base(type_of(base)));
+    return walk_bases_and_members(
+        type,
+        [](info base) {
+            return is_synchronizable_type(add_const(type_of(base)));
+        },
+        [](info member) -> TraitAnswer {
+            const auto member_type = type_of(member);
 
-    for (info member : nonstatic_data_members_of(type, context)) {
-        const auto member_type = type_of(member);
-        const auto member_step = path_step_of_member(member);
+            if (is_mutable_member(member)) {
+                if (!is_synchronizable_type(remove_cv(member_type)))
+                    return "is a mutable member written through a const "
+                           "reference: its type must be fully synchronizable";
+                return {};
+            }
 
-        if (is_mutable_member(member)) {
-            if (!is_synchronizable_type(remove_cv(member_type)))
-                return TraitAnswer("is a mutable member written through a "
-                                   "const reference: its type must be fully "
-                                   "synchronizable")
-                    .prepend_path(member_step);
-        }
-        else if (is_reference_type(member_type)) {
-            if (!is_synchronizable_type(remove_cvref(member_type)))
-                return TraitAnswer("is a reference member that stops the "
-                                   "const: its referent must be "
-                                   "synchronizable itself")
-                    .prepend_path(member_step);
-        }
-        else if (const auto answer
-                 = is_synchronizable_type(add_const(member_type));
-                 !answer) {
-            return answer.prepend_path(member_step);
-        }
-    }
+            if (is_reference_type(member_type)) {
+                if (!is_synchronizable_type(remove_cvref(member_type)))
+                    return "is a reference member that stops the const: its "
+                           "referent must be synchronizable itself";
+                return {};
+            }
 
-    return {};
+            return is_synchronizable_type(add_const(member_type));
+        });
 }
 
 }

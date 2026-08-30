@@ -125,7 +125,6 @@ namespace detail {
 inline consteval TraitAnswer diagnose_is_lifetime_aware(std::meta::info type) {
     using namespace std::meta;
 
-    const auto context = access_context::unchecked();
     const auto unqualified = remove_cv(type);
 
     if (unqualified != type)
@@ -154,17 +153,12 @@ inline consteval TraitAnswer diagnose_is_lifetime_aware(std::meta::info type) {
                   "captures); specialize is_unsafe_lifetime_aware to state "
                   "the intent";
 
-    for (info base : bases_of(type, context))
-        if (const auto answer = is_lifetime_aware_type(type_of(base)); !answer)
-            return answer.prepend_path(path_step_of_base(type_of(base)));
-
-    for (info member : nonstatic_data_members_of(type, context))
-        if (const auto answer
-            = is_lifetime_aware_type(remove_cv(type_of(member)));
-            !answer)
-            return answer.prepend_path(path_step_of_member(member));
-
-    return {};
+    return walk_bases_and_members(
+        type,
+        [](info base) { return is_lifetime_aware_type(type_of(base)); },
+        [](info member) {
+            return is_lifetime_aware_type(remove_cv(type_of(member)));
+        });
 }
 
 }
