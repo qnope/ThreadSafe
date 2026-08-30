@@ -36,7 +36,8 @@ struct is_lifetime_aware
 };
 
 template <class T>
-constexpr TraitAnswer is_lifetime_aware_v = is_lifetime_aware<T>::diagnose();
+constexpr TraitAnswer is_lifetime_aware_v
+    = is_lifetime_aware<T>::diagnose().with_trait("lifetime-aware");
 
 template <class T>
 concept lifetime_aware = bool(is_lifetime_aware_v<T>);
@@ -48,21 +49,21 @@ inline consteval TraitAnswer is_lifetime_aware_type(std::meta::info type) {
 template <class T>
 struct is_unsafe_lifetime_aware<T&> {
     static consteval TraitAnswer diagnose() {
-        return "References borrow their referent instead of keeping it alive";
+        return "borrows its referent instead of keeping it alive";
     }
 };
 
 template <class T>
 struct is_unsafe_lifetime_aware<T&&> {
     static consteval TraitAnswer diagnose() {
-        return "References borrow their referent instead of keeping it alive";
+        return "borrows its referent instead of keeping it alive";
     }
 };
 
 template <class T>
 struct is_unsafe_lifetime_aware<T*> {
     static consteval TraitAnswer diagnose() {
-        return "Raw pointers borrow their pointee instead of keeping it alive";
+        return "borrows its pointee instead of keeping it alive";
     }
 };
 
@@ -91,8 +92,7 @@ struct is_unsafe_lifetime_aware<T[]> {
 template <class T>
 struct is_unsafe_lifetime_aware<std::reference_wrapper<T>> {
     static consteval TraitAnswer diagnose() {
-        return "std::reference_wrapper borrows its referent instead of "
-               "keeping it alive";
+        return "borrows its referent instead of keeping it alive";
     }
 };
 
@@ -136,7 +136,7 @@ inline consteval TraitAnswer diagnose_is_lifetime_aware(std::meta::info type) {
         return vouched;
 
     if (is_void_type(type))
-        return "void holds no value to own";
+        return "holds no value to own";
 
     if (extract<bool>(substitute(^^std::ranges::borrowed_range, {type})))
         return "is a borrowed range: a view over someone else's storage, it "
@@ -156,7 +156,7 @@ inline consteval TraitAnswer diagnose_is_lifetime_aware(std::meta::info type) {
 
     for (info base : bases_of(type, context))
         if (const auto answer = is_lifetime_aware_type(type_of(base)); !answer)
-            return answer.prepend_path(path_step_of_type(type_of(base)));
+            return answer.prepend_path(path_step_of_base(type_of(base)));
 
     for (info member : nonstatic_data_members_of(type, context))
         if (const auto answer

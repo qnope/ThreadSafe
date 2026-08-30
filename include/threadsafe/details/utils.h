@@ -48,17 +48,27 @@ struct TraitAnswer {
         return answer;
     }
 
+    consteval TraitAnswer with_trait(std::string_view asking_trait) const {
+        if (error_message == nullptr || trait_name != nullptr)
+            return *this;
+
+        TraitAnswer answer = *this;
+        answer.trait_name = std::define_static_string(asking_trait);
+        return answer;
+    }
+
     consteval std::string_view full_path() const {
         std::string joined_path;
         for (const char *step : paths()) {
             if (!joined_path.empty())
-                joined_path += '.';
+                joined_path += "::";
             joined_path += step;
         }
         return std::define_static_string(joined_path);
     }
 
     const char *error_message = nullptr;
+    const char *trait_name = nullptr;
     const char *const *path_steps = nullptr;
     std::size_t path_step_count = 0;
     bool answered = true;
@@ -78,10 +88,19 @@ inline consteval std::string_view path_step_of_type(std::meta::info type) {
     return std::meta::display_string_of(type);
 }
 
+inline consteval std::string_view path_step_of_base(std::meta::info base_type) {
+    return std::define_static_string(
+        "base (" + std::string(path_step_of_type(base_type)) + ")");
+}
+
 inline consteval std::string_view path_step_of_member(std::meta::info member) {
-    if (std::meta::has_identifier(member))
-        return std::meta::identifier_of(member);
-    return "(anonymous)";
+    const std::string_view name = std::meta::has_identifier(member)
+                                    ? std::meta::identifier_of(member)
+                                    : "(anonymous)";
+
+    return std::define_static_string(
+        std::string(name) + " ("
+        + std::string(path_step_of_type(std::meta::type_of(member))) + ")");
 }
 
 inline consteval TraitAnswer trait_value(std::meta::info trait,
@@ -148,17 +167,17 @@ inline consteval TraitAnswer is_default_type(std::meta::info type) {
 
     for (std::meta::info member : std::meta::members_of(type, context)) {
         if (may_hijack_copy_move(member))
-            return "a constructor or assignment template may be selected as "
-                      "a copy or a move; write the special members out, or "
-                      "specialize the trait";
+            return "has a constructor or assignment template that may be "
+                      "selected as a copy or a move; write the special "
+                      "members out, or specialize the trait";
 
         if (!is_copy_move_destroy_member(member))
             continue;
 
         if (!std::meta::is_defaulted(member) && !std::meta::is_deleted(member))
-            return "a user-written copy, move or destructor can share state "
-                      "the members do not show; specialize the trait to state "
-                      "the intent";
+            return "has a user-written copy, move or destructor that can "
+                      "share state the members do not show; specialize the "
+                      "trait to state the intent";
     }
 
     return {};

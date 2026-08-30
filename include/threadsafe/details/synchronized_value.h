@@ -110,15 +110,15 @@ struct is_unsafe_lifetime_aware<synchronized_value<T>> {
 template <class T, class Lock>
 struct is_unsafe_sendable<value_guard<T, Lock>> {
     static consteval TraitAnswer diagnose() {
-        return "a value_guard holds a lock owned by the thread that took it";
+        return "holds a lock owned by the thread that took it";
     }
 };
 
 template <class T, class Lock>
 struct is_unsafe_lifetime_aware<value_guard<T, Lock>> {
     static consteval TraitAnswer diagnose() {
-        return "a value_guard points into the synchronized_value it guards "
-               "instead of keeping it alive";
+        return "points into the synchronized_value it guards instead of "
+               "keeping it alive";
     }
 };
 
