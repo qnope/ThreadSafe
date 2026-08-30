@@ -44,35 +44,40 @@ inline consteval TraitAnswer is_sendable_type(std::meta::info type) {
 template <class T>
 struct is_unsafe_sendable<T&> {
     static consteval TraitAnswer diagnose() {
-        return is_synchronizable_v<std::remove_cv_t<T>>;
+        return is_synchronizable_v<std::remove_cv_t<T>>.prepend_path(
+            detail::referent_step);
     }
 };
 
 template <class T>
 struct is_unsafe_sendable<T&&> {
     static consteval TraitAnswer diagnose() {
-        return is_synchronizable_v<std::remove_cv_t<T>>;
+        return is_synchronizable_v<std::remove_cv_t<T>>.prepend_path(
+            detail::referent_step);
     }
 };
 
 template <class T>
 struct is_unsafe_sendable<T*> {
     static consteval TraitAnswer diagnose() {
-        return is_synchronizable_v<std::remove_cv_t<T>>;
+        return is_synchronizable_v<std::remove_cv_t<T>>.prepend_path(
+            detail::pointee_step);
     }
 };
 
 template <class T, std::size_t N>
 struct is_unsafe_sendable<T[N]> {
     static consteval TraitAnswer diagnose() {
-        return is_sendable_v<std::remove_cv_t<T>>;
+        return is_sendable_v<std::remove_cv_t<T>>.prepend_path(
+            detail::element_step);
     }
 };
 
 template <class T>
 struct is_unsafe_sendable<T[]> {
     static consteval TraitAnswer diagnose() {
-        return is_sendable_v<std::remove_cv_t<T>>;
+        return is_sendable_v<std::remove_cv_t<T>>.prepend_path(
+            detail::element_step);
     }
 };
 
@@ -114,12 +119,12 @@ inline consteval TraitAnswer diagnose_is_sendable(std::meta::info type) {
 
     for (info base : bases_of(type, context))
         if (const auto answer = is_sendable_type(type_of(base)); !answer)
-            return "a base class is not sendable";
+            return answer.prepend_path(path_step_of_type(type_of(base)));
 
     for (info member : nonstatic_data_members_of(type, context))
         if (const auto answer = is_sendable_type(remove_cv(type_of(member)));
             !answer)
-            return "a member is not sendable";
+            return answer.prepend_path(path_step_of_member(member));
 
     return {};
 }

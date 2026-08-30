@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace {
 
@@ -66,6 +67,47 @@ static_assert(carries_a_reason(is_sendable_v<BorrowingOuter>));
 static_assert(carries_a_reason(is_synchronizable_v<const BorrowingOuter>));
 static_assert(carries_a_reason(is_lifetime_aware_v<BorrowingOuter>));
 
+consteval bool path_is(threadsafe::TraitAnswer answer, std::string_view path) {
+    return !answer && answer.full_path() == path;
+}
+
+consteval bool reasons_match(threadsafe::TraitAnswer answer,
+                             threadsafe::TraitAnswer root_cause) {
+    return !answer && !root_cause
+        && std::string_view(answer.error_message)
+               == std::string_view(root_cause.error_message);
+}
+
+static_assert(is_sendable_v<Plain>.paths().empty());
+
+static_assert(path_is(is_sendable_v<int *>, "*"));
+static_assert(path_is(is_sendable_v<Borrowing>, "borrowed.*"));
+static_assert(path_is(is_sendable_v<BorrowingMiddle>, "inner.borrowed.*"));
+static_assert(
+    path_is(is_sendable_v<BorrowingOuter>, "middle.inner.borrowed.*"));
+
+static_assert(path_is(is_synchronizable_v<const BorrowingOuter>,
+                      "middle.inner.borrowed"));
+static_assert(
+    path_is(is_lifetime_aware_v<BorrowingOuter>, "middle.inner.borrowed"));
+
+static_assert(
+    reasons_match(is_sendable_v<BorrowingOuter>, is_synchronizable_v<int>));
+static_assert(reasons_match(is_lifetime_aware_v<BorrowingOuter>,
+                            is_lifetime_aware_v<int *>));
+
+struct DerivedFromBorrowing : BorrowingOuter {};
+
+static_assert(path_is(is_sendable_v<DerivedFromBorrowing>,
+                      "BorrowingOuter.middle.inner.borrowed.*"));
+
+static_assert(path_is(is_sendable_v<Borrowing[4]>, "[].borrowed.*"));
+static_assert(
+    path_is(is_sendable_v<std::vector<Borrowing>>, "Borrowing.borrowed.*"));
+static_assert(path_is(is_sendable_v<std::shared_ptr<Borrowing>>, "*"));
+static_assert(
+    path_is(is_lifetime_aware_v<std::unique_ptr<Borrowing>>, "*.borrowed"));
+
 struct Refused {
     int value;
 };
@@ -122,5 +164,16 @@ static_assert(!is_sendable_v<HoldsRefused>);
 static_assert(!threadsafe::is_unsafe_sendable_v<Refused>.answered);
 static_assert(!threadsafe::is_unsafe_lifetime_aware_v<Refused>.answered);
 static_assert(threadsafe::is_unsafe_sendable_v<RefusedSendable>.answered);
+
+
+constexpr threadsafe::TraitAnswer nested_reason
+    = threadsafe::TraitAnswer("a member is not sendable")
+          .prepend_path("member")
+          .prepend_path("HoldsRefused");
+
+static_assert(nested_reason.paths().size() == 2);
+static_assert(nested_reason.full_path() == "HoldsRefused.member");
+static_assert(threadsafe::TraitAnswer{}.full_path().empty());
+static_assert(reason_is(nested_reason, "a member is not sendable"));
 
 }

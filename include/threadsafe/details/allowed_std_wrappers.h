@@ -61,8 +61,8 @@ inline consteval TraitAnswer std_wrapper_is_sendable(std::meta::info type) {
         return {};
 
     for (std::meta::info wrapped : wrapped_types_of(type))
-        if (!is_sendable_type(wrapped))
-            return "wraps a type that is not sendable";
+        if (const auto answer = is_sendable_type(wrapped); !answer)
+            return answer.prepend_path(path_step_of_type(wrapped));
 
     return {};
 }
@@ -73,9 +73,10 @@ std_wrapper_is_const_synchronizable(std::meta::info type) {
         return {};
 
     for (std::meta::info wrapped : wrapped_types_of(type))
-        if (!is_synchronizable_type(std::meta::add_const(wrapped)))
-            return "wraps a type that is not readable from several threads "
-                      "at once";
+        if (const auto answer
+            = is_synchronizable_type(std::meta::add_const(wrapped));
+            !answer)
+            return answer.prepend_path(path_step_of_type(wrapped));
 
     return {};
 }
@@ -83,9 +84,8 @@ std_wrapper_is_const_synchronizable(std::meta::info type) {
 inline consteval TraitAnswer
 std_wrapper_is_lifetime_aware(std::meta::info type) {
     for (std::meta::info wrapped : wrapped_types_of(type))
-        if (!is_lifetime_aware_type(wrapped))
-            return "wraps a type that borrows instead of keeping its data "
-                      "alive";
+        if (const auto answer = is_lifetime_aware_type(wrapped); !answer)
+            return answer.prepend_path(path_step_of_type(wrapped));
 
     return {};
 }

@@ -75,14 +75,16 @@ struct is_unsafe_lifetime_aware<F*> {
 template <class T, std::size_t N>
 struct is_unsafe_lifetime_aware<T[N]> {
     static consteval TraitAnswer diagnose() {
-        return is_lifetime_aware_v<std::remove_cv_t<T>>;
+        return is_lifetime_aware_v<std::remove_cv_t<T>>.prepend_path(
+            detail::element_step);
     }
 };
 
 template <class T>
 struct is_unsafe_lifetime_aware<T[]> {
     static consteval TraitAnswer diagnose() {
-        return is_lifetime_aware_v<std::remove_cv_t<T>>;
+        return is_lifetime_aware_v<std::remove_cv_t<T>>.prepend_path(
+            detail::element_step);
     }
 };
 
@@ -100,7 +102,7 @@ struct is_unsafe_lifetime_aware<std::shared_ptr<T>> {
 
     static consteval TraitAnswer diagnose() {
         if (const auto answer = is_lifetime_aware_v<pointee>; !answer)
-            return answer;
+            return answer.prepend_path(detail::pointee_step);
 
         return detail::dynamic_type_is_known<pointee>;
     }
@@ -112,7 +114,7 @@ struct is_unsafe_lifetime_aware<std::weak_ptr<T>> {
 
     static consteval TraitAnswer diagnose() {
         if (const auto answer = is_lifetime_aware_v<pointee>; !answer)
-            return answer;
+            return answer.prepend_path(detail::pointee_step);
 
         return detail::dynamic_type_is_known<pointee>;
     }
@@ -153,13 +155,14 @@ inline consteval TraitAnswer diagnose_is_lifetime_aware(std::meta::info type) {
                   "the intent";
 
     for (info base : bases_of(type, context))
-        if (!is_lifetime_aware_type(type_of(base)))
-            return "a base class borrows instead of keeping its data "
-                      "alive";
+        if (const auto answer = is_lifetime_aware_type(type_of(base)); !answer)
+            return answer.prepend_path(path_step_of_type(type_of(base)));
 
     for (info member : nonstatic_data_members_of(type, context))
-        if (!is_lifetime_aware_type(remove_cv(type_of(member))))
-            return "a member borrows instead of keeping its data alive";
+        if (const auto answer
+            = is_lifetime_aware_type(remove_cv(type_of(member)));
+            !answer)
+            return answer.prepend_path(path_step_of_member(member));
 
     return {};
 }

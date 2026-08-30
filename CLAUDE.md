@@ -43,6 +43,33 @@ The recursion reads the traits reflectively, through the `_v` variable
 (`detail::trait_value` substitutes `^^is_sendable_v`), so a specialization
 written in a user's translation unit still reaches it.
 
+### The path — where the reason was found
+
+A `TraitAnswer` carries a reason *and* the path that leads to it. `diagnose()`
+takes no arguments, and cannot: `_v` is nullary and the recursion reads it
+reflectively, so no accumulated path could be handed down — and a path handed
+down would make the answer depend on who asked, which is exactly what the memo
+forbids. The path is therefore built the other way round. An answer's path is
+relative to the type asked about, and every site that hands a deeper answer
+back up prepends its own step:
+
+```cpp
+if (const auto answer = is_sendable_type(remove_cv(type_of(member))); !answer)
+    return answer.prepend_path(path_step_of_member(member));
+```
+
+The steps are `detail::pointee_step` (`*`), `detail::referent_step` (`&`),
+`detail::element_step` (`[]`), and otherwise the member's or the type's own
+name. `prepend_path` is a no-op on a yes, so a delegating specialization stays
+one line: `return is_synchronizable_v<T>.prepend_path(detail::pointee_step);`.
+
+Prepend a step only when the answer came from a deeper question. When the
+reason is about the type at hand — a pointer whose const stops at it, a
+user-written copy constructor, a closure with captures — the reason replaces
+the inner one and no step is added. Everywhere else the deepest reason travels
+up untouched, so the launcher prints the root cause and the route to it:
+`is_sendable at Outer.middle.inner.borrowed.*: …`.
+
 ### `is_unsafe_<trait>` — the one customization point
 
 The safe traits are **closed**: `is_sendable`, `is_synchronizable` and

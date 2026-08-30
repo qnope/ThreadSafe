@@ -1,8 +1,12 @@
 #pragma once
 
+#include <cstddef>
 #include <meta>
+#include <span>
+#include <string>
 #include <string_view>
 #include <type_traits>
+#include <vector>
 
 namespace threadsafe {
 
@@ -22,13 +26,63 @@ struct TraitAnswer {
         return answered && error_message == nullptr;
     }
 
+    constexpr std::span<const char *const> paths() const {
+        return {path_steps, path_step_count};
+    }
+
+    consteval TraitAnswer prepend_path(std::string_view step) const {
+        if (error_message == nullptr)
+            return *this;
+
+        std::vector<const char *> extended_path;
+        extended_path.reserve(path_step_count + 1);
+        extended_path.push_back(std::define_static_string(step));
+        extended_path.insert(extended_path.end(), path_steps,
+                             path_steps + path_step_count);
+
+        const auto promoted_path = std::define_static_array(extended_path);
+
+        TraitAnswer answer = *this;
+        answer.path_steps = promoted_path.data();
+        answer.path_step_count = promoted_path.size();
+        return answer;
+    }
+
+    consteval std::string_view full_path() const {
+        std::string joined_path;
+        for (const char *step : paths()) {
+            if (!joined_path.empty())
+                joined_path += '.';
+            joined_path += step;
+        }
+        return std::define_static_string(joined_path);
+    }
+
     const char *error_message = nullptr;
+    const char *const *path_steps = nullptr;
+    std::size_t path_step_count = 0;
     bool answered = true;
 };
 
 }
 
 namespace threadsafe::detail {
+
+inline constexpr std::string_view pointee_step = "*";
+inline constexpr std::string_view referent_step = "&";
+inline constexpr std::string_view element_step = "[]";
+
+inline consteval std::string_view path_step_of_type(std::meta::info type) {
+    if (std::meta::has_identifier(type))
+        return std::meta::identifier_of(type);
+    return std::meta::display_string_of(type);
+}
+
+inline consteval std::string_view path_step_of_member(std::meta::info member) {
+    if (std::meta::has_identifier(member))
+        return std::meta::identifier_of(member);
+    return "(anonymous)";
+}
 
 inline consteval TraitAnswer trait_value(std::meta::info trait,
                                          std::meta::info type) {

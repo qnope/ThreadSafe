@@ -35,10 +35,15 @@ namespace detail {
 
 inline consteval void require(TraitAnswer answer, std::string_view trait,
                               std::meta::info type) {
-    if (!answer)
-        throw std::meta::exception(
-            std::string(trait) + ": " + std::string(answer.error_message),
-            type);
+    if (answer)
+        return;
+
+    std::string explanation(trait);
+    if (!answer.paths().empty())
+        explanation += " at " + std::string(answer.full_path());
+    explanation += ": " + std::string(answer.error_message);
+
+    throw std::meta::exception(explanation, type);
 }
 
 template <class F, class... Args>

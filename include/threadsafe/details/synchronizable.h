@@ -18,7 +18,9 @@ struct is_unsafe_synchronizable<F> {
 
 template <class T>
 struct is_unsafe_synchronizable<std::atomic<T>> {
-    static consteval TraitAnswer diagnose() { return is_sendable_v<T>; }
+    static consteval TraitAnswer diagnose() {
+        return is_sendable_v<T>.prepend_path(detail::pointee_step);
+    }
 };
 
 }
