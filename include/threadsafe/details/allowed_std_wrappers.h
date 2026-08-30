@@ -94,17 +94,23 @@ std_wrapper_is_lifetime_aware(std::meta::info type) {
 
 template <detail::std_wrapper T>
 struct is_unsafe_sendable<T> {
-    static constexpr TraitAnswer value = detail::std_wrapper_is_sendable(^^T);
+    static consteval TraitAnswer diagnose() {
+        return detail::std_wrapper_is_sendable(^^T);
+    }
 };
 
 template <detail::std_wrapper T>
 struct is_unsafe_synchronizable<const T> {
-    static constexpr TraitAnswer value = detail::std_wrapper_is_const_synchronizable(^^T);
+    static consteval TraitAnswer diagnose() {
+        return detail::std_wrapper_is_const_synchronizable(^^T);
+    }
 };
 
 template <detail::std_wrapper T>
 struct is_unsafe_lifetime_aware<T> {
-    static constexpr TraitAnswer value = detail::std_wrapper_is_lifetime_aware(^^T);
+    static consteval TraitAnswer diagnose() {
+        return detail::std_wrapper_is_lifetime_aware(^^T);
+    }
 };
 
 }

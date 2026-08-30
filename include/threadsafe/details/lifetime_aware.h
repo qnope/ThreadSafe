@@ -30,66 +30,85 @@ consteval TraitAnswer diagnose_is_lifetime_aware(std::meta::info type);
 template <class T>
 struct is_lifetime_aware
 {
-    static constexpr TraitAnswer value = detail::diagnose_is_lifetime_aware(^^T);
+    static consteval TraitAnswer diagnose() {
+        return detail::diagnose_is_lifetime_aware(^^T);
+    }
 };
 
 template <class T>
-constexpr TraitAnswer is_lifetime_aware_v = is_lifetime_aware<T>::value;
+constexpr TraitAnswer is_lifetime_aware_v = is_lifetime_aware<T>::diagnose();
 
 template <class T>
 struct is_lifetime_aware<T&> {
-    static constexpr TraitAnswer value = "References borrow their referent instead of keeping it alive";
+    static consteval TraitAnswer diagnose() {
+        return "References borrow their referent instead of keeping it alive";
+    }
 };
 
 template <class T>
 struct is_lifetime_aware<T&&> {
-    static constexpr TraitAnswer value = "References borrow their referent instead of keeping it alive";
+    static consteval TraitAnswer diagnose() {
+        return "References borrow their referent instead of keeping it alive";
+    }
 };
 
 template <class T>
 struct is_lifetime_aware<T*> {
-    static constexpr TraitAnswer value = "Raw pointers borrow their pointee instead of keeping it alive";
+    static consteval TraitAnswer diagnose() {
+        return "Raw pointers borrow their pointee instead of keeping it alive";
+    }
 };
 
 template <class F>
     requires std::is_function_v<F>
 struct is_lifetime_aware<F*> {
-    static constexpr TraitAnswer value = {};
+    static consteval TraitAnswer diagnose() { return {}; }
 };
 
 template <class T>
 struct is_unsafe_lifetime_aware<std::reference_wrapper<T>> {
-    static constexpr TraitAnswer value = "std::reference_wrapper borrows its referent instead of keeping it alive";
+    static consteval TraitAnswer diagnose() {
+        return "std::reference_wrapper borrows its referent instead of "
+               "keeping it alive";
+    }
 };
 
 template <class T, std::size_t N>
-struct is_lifetime_aware<T[N]> : is_lifetime_aware<std::remove_cv_t<T>> {};
+struct is_lifetime_aware<T[N]> {
+    static consteval TraitAnswer diagnose() {
+        return is_lifetime_aware_v<std::remove_cv_t<T>>;
+    }
+};
 
 template <class T>
-struct is_lifetime_aware<T[]> : is_lifetime_aware<std::remove_cv_t<T>> {};
+struct is_lifetime_aware<T[]> {
+    static consteval TraitAnswer diagnose() {
+        return is_lifetime_aware_v<std::remove_cv_t<T>>;
+    }
+};
 
 template <class T>
 struct is_unsafe_lifetime_aware<std::shared_ptr<T>> {
     using pointee = std::remove_cv_t<std::remove_all_extents_t<T>>;
 
-    static constexpr TraitAnswer value = [] {
+    static consteval TraitAnswer diagnose() {
         if (const auto answer = is_lifetime_aware_v<pointee>; !answer)
             return answer;
 
         return detail::dynamic_type_is_known<pointee>;
-    }();
+    }
 };
 
 template <class T>
 struct is_unsafe_lifetime_aware<std::weak_ptr<T>> {
     using pointee = std::remove_cv_t<std::remove_all_extents_t<T>>;
 
-    static constexpr TraitAnswer value = [] {
+    static consteval TraitAnswer diagnose() {
         if (const auto answer = is_lifetime_aware_v<pointee>; !answer)
             return answer;
 
         return detail::dynamic_type_is_known<pointee>;
-    }();
+    }
 };
 
 template <class T>

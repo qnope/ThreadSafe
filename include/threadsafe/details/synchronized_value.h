@@ -94,20 +94,28 @@ private:
 };
 
 template <class T>
-struct is_unsafe_synchronizable<synchronized_value<T>> : is_sendable<T> {};
+struct is_unsafe_synchronizable<synchronized_value<T>> {
+    static consteval TraitAnswer diagnose() { return is_sendable_v<T>; }
+};
 
 template <class T>
-struct is_unsafe_lifetime_aware<synchronized_value<T>> : is_lifetime_aware<T> {};
+struct is_unsafe_lifetime_aware<synchronized_value<T>> {
+    static consteval TraitAnswer diagnose() { return is_lifetime_aware_v<T>; }
+};
 
 template <class T, class Lock>
 struct is_unsafe_sendable<value_guard<T, Lock>> {
-    static constexpr TraitAnswer value = "a value_guard holds a lock owned by the thread that took it";
+    static consteval TraitAnswer diagnose() {
+        return "a value_guard holds a lock owned by the thread that took it";
+    }
 };
 
 template <class T, class Lock>
 struct is_unsafe_lifetime_aware<value_guard<T, Lock>> {
-    static constexpr TraitAnswer value = "a value_guard points into the synchronized_value it guards "
-              "instead of keeping it alive";
+    static consteval TraitAnswer diagnose() {
+        return "a value_guard points into the synchronized_value it guards "
+               "instead of keeping it alive";
+    }
 };
 
 }

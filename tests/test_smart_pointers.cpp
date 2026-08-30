@@ -25,7 +25,9 @@ struct ImmutableInt {
 
 template <>
 struct threadsafe::is_unsafe_synchronizable<SyncType> {
-    static constexpr threadsafe::TraitAnswer value = {};
+    static consteval threadsafe::TraitAnswer diagnose() {
+        return {};
+    }
 };
 
 using threadsafe::is_sendable_v;

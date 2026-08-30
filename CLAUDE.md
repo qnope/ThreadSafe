@@ -22,10 +22,22 @@ cmake --build build
 
 ## Architecture: the traits
 
-Each trait is a class template paired with a `_v` constexpr variable — the
-shape of `std::is_same` / `std::is_same_v`. Write `is_sendable_v<T>` to ask the
-question. The answer is a `TraitAnswer`, not a `bool`: yes, or the reason it is
-no. (A third state, *unanswered*, belongs to the unsafe traits below.)
+Each trait is written twice over: a class template holding a
+`static consteval TraitAnswer diagnose()` — the definition, which computes —
+and a `_v` constexpr variable — the question, which remembers. Write
+`is_sendable_v<T>` to ask; nothing calls `diagnose()` itself. The answer is a
+`TraitAnswer`, not a `bool`: yes, or the reason it is no. (A third state,
+*unanswered*, belongs to the unsafe traits below.)
+
+`_v` is the memo: the compiler instantiates a variable template once per `T`,
+so a walk over a type's members runs once per translation unit however many
+times the answer is asked for. A specialization that delegates therefore reads
+the memo — `return is_synchronizable_v<T>;` — and never inherits from another
+trait, which would recompute the walk on every question.
+
+`diagnose()` is total: it returns a reason, it never throws. A reason that must
+be composed is built where it is thrown and never stored — see `detail::require`
+in the launcher.
 
 The recursion reads the traits reflectively, through the `_v` variable
 (`detail::trait_value` substitutes `^^is_sendable_v`), so a specialization
@@ -41,7 +53,17 @@ Everything else is asserted, not proved, and is written as a specialization of
 `is_unsafe_sendable` / `is_unsafe_synchronizable` / `is_unsafe_lifetime_aware`.
 Their primary template is **empty**: specializing it is what claims the type,
 and the claim is final — yes or no, the safe trait returns it verbatim. A type
-nobody claimed has no `value` to read, which is the unanswered state.
+nobody claimed has no `diagnose()` to call, which is the unanswered state.
+
+A specialization spells the claim out — `static consteval TraitAnswer
+diagnose()`, with the return type written, never deduced:
+
+```cpp
+template <>
+struct threadsafe::is_unsafe_synchronizable<MyType> {
+    static consteval threadsafe::TraitAnswer diagnose() { return {}; }
+};
+```
 
 The library holds itself to that rule: `std::vector`, `std::unique_ptr`,
 `std::atomic`, `synchronized_value`, `copy_on_write` are all vouched for this

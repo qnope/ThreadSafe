@@ -78,7 +78,9 @@ constexpr bool can_launch_task = threadsafe::launchable_task<F, Args...>;
 
 template <>
 struct threadsafe::is_unsafe_synchronizable<SyncType> {
-    static constexpr threadsafe::TraitAnswer value = {};
+    static consteval threadsafe::TraitAnswer diagnose() {
+        return {};
+    }
 };
 
 using threadsafe::is_lifetime_aware_v;

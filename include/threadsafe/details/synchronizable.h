@@ -15,11 +15,13 @@ concept function_type = std::is_function_v<F>;
 
 template <function_type F>
 struct is_synchronizable<F> {
-    static constexpr TraitAnswer value = {};
+    static consteval TraitAnswer diagnose() { return {}; }
 };
 
 template <class T>
-struct is_unsafe_synchronizable<std::atomic<T>> : is_sendable<T> {};
+struct is_unsafe_synchronizable<std::atomic<T>> {
+    static consteval TraitAnswer diagnose() { return is_sendable_v<T>; }
+};
 
 namespace detail {
 consteval TraitAnswer diagnose_is_const_synchronizable(std::meta::info type);
@@ -27,14 +29,23 @@ consteval TraitAnswer diagnose_is_const_synchronizable(std::meta::info type);
 
 template <class T>
 struct is_synchronizable<const T> {
-    static constexpr TraitAnswer value
-        = detail::diagnose_is_const_synchronizable(^^T);
+    static consteval TraitAnswer diagnose() {
+        return detail::diagnose_is_const_synchronizable(^^T);
+    }
 };
 
 template <class T, std::size_t N>
-struct is_synchronizable<const T[N]> : is_synchronizable<const T> {};
+struct is_synchronizable<const T[N]> {
+    static consteval TraitAnswer diagnose() {
+        return is_synchronizable_v<const T>;
+    }
+};
 template <class T>
-struct is_synchronizable<const T[]> : is_synchronizable<const T> {};
+struct is_synchronizable<const T[]> {
+    static consteval TraitAnswer diagnose() {
+        return is_synchronizable_v<const T>;
+    }
+};
 
 namespace detail {
 

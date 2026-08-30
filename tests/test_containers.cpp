@@ -49,13 +49,16 @@ struct MoveOnlyStrings {
 
 template <>
 struct threadsafe::is_unsafe_synchronizable<std::vector<VouchedElement>> {
-    static constexpr threadsafe::TraitAnswer value = {};
+    static consteval threadsafe::TraitAnswer diagnose() {
+        return {};
+    }
 };
 
 template <>
 struct threadsafe::is_unsafe_sendable<std::vector<OptedOut>> {
-    static constexpr threadsafe::TraitAnswer value
-        = "opted out by this test";
+    static consteval threadsafe::TraitAnswer diagnose() {
+        return "opted out by this test";
+    }
 };
 
 using threadsafe::is_sendable_v;

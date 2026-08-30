@@ -62,7 +62,9 @@ using cow = threadsafe::copy_on_write<T>;
 
 template <>
 struct threadsafe::is_unsafe_synchronizable<SyncCache> {
-    static constexpr threadsafe::TraitAnswer value = {};
+    static consteval threadsafe::TraitAnswer diagnose() {
+        return {};
+    }
 };
 
 using threadsafe::is_lifetime_aware_v;

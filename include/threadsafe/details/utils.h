@@ -37,10 +37,15 @@ inline consteval TraitAnswer trait_value(std::meta::info trait,
 
 template <template <class> class UnsafeTrait, class T>
 consteval TraitAnswer unsafe_answer() {
-    if constexpr (requires { UnsafeTrait<T>::value; })
-        return UnsafeTrait<T>::value;
-    else
+    if constexpr (requires { UnsafeTrait<T>::diagnose(); })
+        return UnsafeTrait<T>::diagnose();
+    else {
+        static_assert(!requires { UnsafeTrait<T>::value; },
+                      "an is_unsafe_<trait> specialization states its claim as "
+                      "`static consteval TraitAnswer diagnose()`, not as a "
+                      "`value` member");
         return TraitAnswer::unanswered();
+    }
 }
 
 template <class T>

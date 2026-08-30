@@ -78,17 +78,23 @@ struct RefusedLifetimeAware : Refused {};
 
 template <>
 struct threadsafe::is_unsafe_sendable<RefusedSendable> {
-    static constexpr threadsafe::TraitAnswer value = "refused by this test";
+    static consteval threadsafe::TraitAnswer diagnose() {
+        return "refused by this test";
+    }
 };
 
 template <>
 struct threadsafe::is_unsafe_synchronizable<const RefusedSynchronizable> {
-    static constexpr threadsafe::TraitAnswer value = "refused by this test";
+    static consteval threadsafe::TraitAnswer diagnose() {
+        return "refused by this test";
+    }
 };
 
 template <>
 struct threadsafe::is_unsafe_lifetime_aware<RefusedLifetimeAware> {
-    static constexpr threadsafe::TraitAnswer value = "refused by this test";
+    static consteval threadsafe::TraitAnswer diagnose() {
+        return "refused by this test";
+    }
 };
 
 namespace {

@@ -33,7 +33,9 @@ struct Holder {
 
 template <>
 struct threadsafe::is_unsafe_synchronizable<Opaque> {
-    static constexpr threadsafe::TraitAnswer value = {};
+    static consteval threadsafe::TraitAnswer diagnose() {
+        return {};
+    }
 };
 
 static_assert(!is_sendable_v<int*>);

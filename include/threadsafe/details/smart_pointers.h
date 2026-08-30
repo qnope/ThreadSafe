@@ -6,81 +6,108 @@
 
 #include <threadsafe/details/lifetime_aware.h>
 #include <threadsafe/details/sendable.h>
+#include <threadsafe/details/synchronizable.h>
 
 namespace threadsafe {
 
 template <class T>
 struct is_unsafe_sendable<std::default_delete<T>> {
-    static constexpr TraitAnswer value = {};
+    static consteval TraitAnswer diagnose() { return {}; }
 };
 
 template <class T, class D>
 struct is_unsafe_sendable<std::unique_ptr<T, D>> {
-    static constexpr TraitAnswer value = []{
-        if (const auto value = is_sendable_v<std::remove_all_extents_t<T>>; !value)
-            return value;
+    static consteval TraitAnswer diagnose() {
+        using pointee = std::remove_all_extents_t<T>;
 
-        if (const auto value = is_sendable_v<D>; !value)
-            return value;
+        if (const auto pointee_answer = is_sendable_v<pointee>; !pointee_answer)
+            return pointee_answer;
 
-        return detail::dynamic_type_is_known<std::remove_all_extents_t<T>>;
-    }();
+        if (const auto deleter_answer = is_sendable_v<D>; !deleter_answer)
+            return deleter_answer;
+
+        return detail::dynamic_type_is_known<pointee>;
+    }
 };
 
 template <class T, class D>
 struct is_unsafe_lifetime_aware<std::unique_ptr<T, D>> {
-    static constexpr TraitAnswer value = []{
-        if (const auto value = is_lifetime_aware_v<std::remove_all_extents_t<T>>; !value)
-            return value;
+    static consteval TraitAnswer diagnose() {
+        using pointee = std::remove_all_extents_t<T>;
 
-        if (const auto value = is_lifetime_aware_v<D>; !value)
-            return value;
+        if (const auto pointee_answer = is_lifetime_aware_v<pointee>;
+            !pointee_answer)
+            return pointee_answer;
 
-        return detail::dynamic_type_is_known<std::remove_all_extents_t<T>>;
-    }();
+        if (const auto deleter_answer = is_lifetime_aware_v<D>; !deleter_answer)
+            return deleter_answer;
+
+        return detail::dynamic_type_is_known<pointee>;
+    }
 };
 
 template <class T>
-struct is_unsafe_sendable<std::shared_ptr<T>>
-    : is_synchronizable<std::remove_cv_t<std::remove_all_extents_t<T>>> {};
+struct is_unsafe_sendable<std::shared_ptr<T>> {
+    static consteval TraitAnswer diagnose() {
+        return is_synchronizable_v<std::remove_cv_t<std::remove_all_extents_t<T>>>;
+    }
+};
 
 template <class T>
-struct is_unsafe_sendable<std::weak_ptr<T>>
-    : is_synchronizable<std::remove_cv_t<std::remove_all_extents_t<T>>> {};
+struct is_unsafe_sendable<std::weak_ptr<T>> {
+    static consteval TraitAnswer diagnose() {
+        return is_synchronizable_v<std::remove_cv_t<std::remove_all_extents_t<T>>>;
+    }
+};
 
 template <class T>
-struct is_unsafe_sendable<std::reference_wrapper<T>>
-    : is_synchronizable<std::remove_cv_t<T>> {};
+struct is_unsafe_sendable<std::reference_wrapper<T>> {
+    static consteval TraitAnswer diagnose() {
+        return is_synchronizable_v<std::remove_cv_t<T>>;
+    }
+};
 
 template <class T>
 struct is_unsafe_synchronizable<const std::default_delete<T>> {
-    static constexpr TraitAnswer value = {};
+    static consteval TraitAnswer diagnose() { return {}; }
 };
 
 template <class T, class D>
-struct is_unsafe_synchronizable<const std::unique_ptr<T, D>>
-{
-    static constexpr TraitAnswer value = []{
-        if (const auto value = is_synchronizable_v<std::remove_all_extents_t<T>>; !value)
-            return value;
+struct is_unsafe_synchronizable<const std::unique_ptr<T, D>> {
+    static consteval TraitAnswer diagnose() {
+        using pointee = std::remove_all_extents_t<T>;
 
-        if (const auto value = is_synchronizable_v<const D>; !value)
-            return value;
+        if (const auto pointee_answer = is_synchronizable_v<pointee>;
+            !pointee_answer)
+            return pointee_answer;
 
-        return detail::dynamic_type_is_known<std::remove_all_extents_t<T>>;
-    }();
+        if (const auto deleter_answer = is_synchronizable_v<const D>;
+            !deleter_answer)
+            return deleter_answer;
+
+        return detail::dynamic_type_is_known<pointee>;
+    }
 };
 
 template <class T>
-struct is_unsafe_synchronizable<const std::shared_ptr<T>>
-    : is_synchronizable<std::remove_cv_t<std::remove_all_extents_t<T>>> {};
+struct is_unsafe_synchronizable<const std::shared_ptr<T>> {
+    static consteval TraitAnswer diagnose() {
+        return is_synchronizable_v<std::remove_cv_t<std::remove_all_extents_t<T>>>;
+    }
+};
 
 template <class T>
-struct is_unsafe_synchronizable<const std::weak_ptr<T>>
-    : is_synchronizable<std::remove_cv_t<std::remove_all_extents_t<T>>> {};
+struct is_unsafe_synchronizable<const std::weak_ptr<T>> {
+    static consteval TraitAnswer diagnose() {
+        return is_synchronizable_v<std::remove_cv_t<std::remove_all_extents_t<T>>>;
+    }
+};
 
 template <class T>
-struct is_unsafe_synchronizable<const std::reference_wrapper<T>>
-    : is_synchronizable<std::remove_cv_t<T>> {};
+struct is_unsafe_synchronizable<const std::reference_wrapper<T>> {
+    static consteval TraitAnswer diagnose() {
+        return is_synchronizable_v<std::remove_cv_t<T>>;
+    }
+};
 
 }

@@ -26,27 +26,53 @@ consteval TraitAnswer diagnose_is_sendable(std::meta::info type);
 
 template <class T>
 struct is_sendable {
-    static constexpr TraitAnswer value = detail::diagnose_is_sendable(^^T);
+    static consteval TraitAnswer diagnose() {
+        return detail::diagnose_is_sendable(^^T);
+    }
 };
 
 template <class T>
-constexpr TraitAnswer is_sendable_v = is_sendable<T>::value;
+constexpr TraitAnswer is_sendable_v = is_sendable<T>::diagnose();
 
 template <class T>
-struct is_sendable<const T> : is_sendable<std::remove_const_t<T>> {};
+struct is_sendable<const T> {
+    static consteval TraitAnswer diagnose() {
+        return is_sendable_v<std::remove_const_t<T>>;
+    }
+};
 
 template <class T>
-struct is_sendable<T&> : is_synchronizable<std::remove_cv_t<T>> {};
+struct is_sendable<T&> {
+    static consteval TraitAnswer diagnose() {
+        return is_synchronizable_v<std::remove_cv_t<T>>;
+    }
+};
 template <class T>
-struct is_sendable<T&&> : is_synchronizable<std::remove_cv_t<T>> {};
+struct is_sendable<T&&> {
+    static consteval TraitAnswer diagnose() {
+        return is_synchronizable_v<std::remove_cv_t<T>>;
+    }
+};
 
 template <class T>
-struct is_sendable<T*> : is_synchronizable<std::remove_cv_t<T>> {};
+struct is_sendable<T*> {
+    static consteval TraitAnswer diagnose() {
+        return is_synchronizable_v<std::remove_cv_t<T>>;
+    }
+};
 
 template <class T, std::size_t N>
-struct is_sendable<T[N]> : is_sendable<std::remove_cv_t<T>> {};
+struct is_sendable<T[N]> {
+    static consteval TraitAnswer diagnose() {
+        return is_sendable_v<std::remove_cv_t<T>>;
+    }
+};
 template <class T>
-struct is_sendable<T[]> : is_sendable<std::remove_cv_t<T>> {};
+struct is_sendable<T[]> {
+    static consteval TraitAnswer diagnose() {
+        return is_sendable_v<std::remove_cv_t<T>>;
+    }
+};
 
 template <class T>
 concept sendable = bool(is_sendable_v<T>);
@@ -65,7 +91,7 @@ inline consteval TraitAnswer diagnose_is_sendable(std::meta::info type) {
     if (const auto vouched = is_unsafe_sendable_type(type); vouched.answered)
         return vouched;
 
-    if (is_synchronizable_type(type) || is_scalar_type(type))
+    if (is_scalar_type(type) || is_synchronizable_type(type))
         return {};
 
     if (is_void_type(type))
