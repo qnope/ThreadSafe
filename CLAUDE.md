@@ -36,8 +36,8 @@ the memo — `return is_synchronizable_v<T>;` — and never inherits from anothe
 trait, which would recompute the walk on every question.
 
 `diagnose()` is total: it returns a reason, it never throws. A reason that must
-be composed is built where it is thrown and never stored — see `detail::require`
-in the launcher.
+be composed is built where it is read and never stored — see `detail::explain`
+in the launcher, which turns an answer into the text of a `static_assert`.
 
 The recursion reads the traits reflectively, through the `_v` variable
 (`detail::trait_value` substitutes `^^is_sendable_v`), so a specialization
@@ -81,7 +81,7 @@ travels up through `is_sendable` still saying *synchronizable*.
 
 Reasons are therefore written as verb phrases with the failing entity as the
 implicit subject — "borrows its referent instead of keeping it alive", "is a
-pointer: the const stops at it" — because `detail::require` in the launcher
+pointer: the const stops at it" — because `detail::explain` in the launcher
 reads them into one sentence, root type first:
 
 ```

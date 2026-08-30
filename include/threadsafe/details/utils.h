@@ -90,17 +90,17 @@ inline consteval std::string_view path_step_of_type(std::meta::info type) {
 
 inline consteval std::string_view path_step_of_base(std::meta::info base_type) {
     return std::define_static_string(
-        "base (" + std::string(path_step_of_type(base_type)) + ")");
+       std::string("base (") + path_step_of_type(base_type)+ ")");
 }
 
 inline consteval std::string_view path_step_of_member(std::meta::info member) {
-    const std::string_view name = std::meta::has_identifier(member)
+    const std::string name{std::meta::has_identifier(member)
                                     ? std::meta::identifier_of(member)
-                                    : "(anonymous)";
+                                    : "(anonymous)"};
 
     return std::define_static_string(
-        std::string(name) + " ("
-        + std::string(path_step_of_type(std::meta::type_of(member))) + ")");
+        name + " ("
+        + path_step_of_type(std::meta::type_of(member)) + ")");
 }
 
 inline consteval TraitAnswer trait_value(std::meta::info trait,
