@@ -59,16 +59,35 @@ if (const auto answer = is_sendable_type(remove_cv(type_of(member))); !answer)
 ```
 
 The steps are `detail::pointee_step` (`*`), `detail::referent_step` (`&`),
-`detail::element_step` (`[]`), and otherwise the member's or the type's own
-name. `prepend_path` is a no-op on a yes, so a delegating specialization stays
-one line: `return is_synchronizable_v<T>.prepend_path(detail::pointee_step);`.
+`detail::element_step` (`[]`), `path_step_of_base` (`base (Outer)`) and
+`path_step_of_member`, which names the member *and* the type it is —
+`borrowed (int*)`, so the path says what each hop is, not only where it went.
+Steps join with `::`. `prepend_path` is a no-op on a yes, so a delegating
+specialization stays one line:
+`return is_synchronizable_v<T>.prepend_path(detail::pointee_step);`.
 
 Prepend a step only when the answer came from a deeper question. When the
 reason is about the type at hand — a pointer whose const stops at it, a
 user-written copy constructor, a closure with captures — the reason replaces
-the inner one and no step is added. Everywhere else the deepest reason travels
-up untouched, so the launcher prints the root cause and the route to it:
-`is_sendable at Outer.middle.inner.borrowed.*: …`.
+the inner one and no step is added.
+
+### The trait — which question the reason answers
+
+A reason also remembers the trait that produced it. Each `_v` stamps its own
+name on the way out — `is_sendable<T>::diagnose().with_trait("sendable")` —
+and `with_trait` is a no-op on an already-stamped answer, so the deepest trait
+keeps the credit: a `T*` that fails because its pointee is not synchronizable
+travels up through `is_sendable` still saying *synchronizable*.
+
+Reasons are therefore written as verb phrases with the failing entity as the
+implicit subject — "borrows its referent instead of keeping it alive", "is a
+pointer: the const stops at it" — because `detail::require` in the launcher
+reads them into one sentence, root type first:
+
+```
+Outer::middle (Middle)::inner (Borrowing)::borrowed (int*)::*
+    is not synchronizable because it carries no synchronization of its own: …
+```
 
 ### `is_unsafe_<trait>` — the one customization point
 

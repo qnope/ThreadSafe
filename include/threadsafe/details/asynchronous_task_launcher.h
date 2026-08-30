@@ -33,15 +33,15 @@ concept launchable_scoped_task = ownable_by_launcher<F, Args...>
 
 namespace detail {
 
-inline consteval void require(TraitAnswer answer, std::string_view trait,
-                              std::meta::info type) {
+inline consteval void require(TraitAnswer answer, std::meta::info type) {
     if (answer)
         return;
 
-    std::string explanation(trait);
-    if (!answer.paths().empty())
-        explanation += " at " + std::string(answer.full_path());
-    explanation += ": " + std::string(answer.error_message);
+    const auto rooted = answer.prepend_path(path_step_of_type(type));
+
+    const std::string explanation = std::string(rooted.full_path())
+                                  + " is not " + rooted.trait_name
+                                  + " because it " + rooted.error_message;
 
     throw std::meta::exception(explanation, type);
 }
@@ -66,10 +66,10 @@ consteval void assert_ownable_by_launcher() {
 template <class F, class... Args>
 consteval void explain_launch_task() {
     assert_ownable_by_launcher<F, Args...>();
-    require(is_sendable_v<F>, "is_sendable", ^^F);
-    require(is_lifetime_aware_v<F>, "is_lifetime_aware", ^^F);
-    (require(is_sendable_v<Args>, "is_sendable", ^^Args), ...);
-    (require(is_lifetime_aware_v<Args>, "is_lifetime_aware", ^^Args), ...);
+    require(is_sendable_v<F>, ^^F);
+    require(is_lifetime_aware_v<F>, ^^F);
+    (require(is_sendable_v<Args>, ^^Args), ...);
+    (require(is_lifetime_aware_v<Args>, ^^Args), ...);
 
     throw std::meta::exception(
         u8"launch_task rejects this call but every trait holds", ^^F);
@@ -78,8 +78,8 @@ consteval void explain_launch_task() {
 template <class F, class... Args>
 consteval void explain_launch_scoped_task() {
     assert_ownable_by_launcher<F, Args...>();
-    require(is_sendable_v<F>, "is_sendable", ^^F);
-    (require(is_sendable_v<Args>, "is_sendable", ^^Args), ...);
+    require(is_sendable_v<F>, ^^F);
+    (require(is_sendable_v<Args>, ^^Args), ...);
 
     throw std::meta::exception(
         u8"launch_scoped_task rejects this call but every trait holds", ^^F);

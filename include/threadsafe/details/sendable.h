@@ -32,7 +32,7 @@ struct is_sendable {
 };
 
 template <class T>
-constexpr TraitAnswer is_sendable_v = is_sendable<T>::diagnose();
+constexpr TraitAnswer is_sendable_v = is_sendable<T>::diagnose().with_trait("sendable");
 
 template <class T>
 concept sendable = bool(is_sendable_v<T>);
@@ -98,7 +98,7 @@ inline consteval TraitAnswer diagnose_is_sendable(std::meta::info type) {
         return {};
 
     if (is_void_type(type))
-        return "void holds no value to send";
+        return "holds no value to send";
 
     if (!is_class_type(type) && !is_union_type(type))
         return "is not a scalar, class or union type — is_sendable<T> "
@@ -119,7 +119,7 @@ inline consteval TraitAnswer diagnose_is_sendable(std::meta::info type) {
 
     for (info base : bases_of(type, context))
         if (const auto answer = is_sendable_type(type_of(base)); !answer)
-            return answer.prepend_path(path_step_of_type(type_of(base)));
+            return answer.prepend_path(path_step_of_base(type_of(base)));
 
     for (info member : nonstatic_data_members_of(type, context))
         if (const auto answer = is_sendable_type(remove_cv(type_of(member)));
