@@ -6,18 +6,6 @@
 
 namespace threadsafe {
 
-// What every trait answers: yes, the reason it is no, or nothing at all.
-//
-// The reason is a plain pointer into static storage, and the promotion is what
-// puts it there: std::meta::extract reads a trait's answer back out of the
-// substituted variable template, and it only reads a structural type — which a
-// std::string_view, holding its two members privately, is not.
-//
-// The third state is what an is_unsafe_<trait> says about a type nobody
-// vouched for: its primary template is empty, so there is no answer to read.
-// It is not a "no" — the safe trait falls through to its own definition
-// instead of reporting a reason. Read as a bool it is false, which is the safe
-// direction to fail in should a caller forget to ask.
 struct TraitAnswer {
     constexpr TraitAnswer() = default;
 
@@ -47,13 +35,6 @@ inline consteval TraitAnswer trait_value(std::meta::info trait,
     return std::meta::extract<TraitAnswer>(std::meta::substitute(trait, {type}));
 }
 
-// The unsafe traits are the library's one customization point, and their
-// primary template is empty: writing a specialization is what claims the type,
-// and what that specialization says — yes or no — is the final answer. A type
-// nobody claimed has no `value` to read, which is the unanswered state.
-//
-// The claim is read by instantiating UnsafeTrait<T>, so a specialization must
-// be written before the first question about that T, exactly as before.
 template <template <class> class UnsafeTrait, class T>
 consteval TraitAnswer unsafe_answer() {
     if constexpr (requires { UnsafeTrait<T>::value; })
@@ -62,19 +43,8 @@ consteval TraitAnswer unsafe_answer() {
         return TraitAnswer::unanswered();
 }
 
-// A structural trait walks the members of the *static* type. Through an
-// indirection the object may be of a derived type, whose extra members the walk
-// never saw, so a structural answer about a polymorphic non-final pointee proves
-// nothing about the object actually there.
-//
-// std::is_polymorphic and std::is_final are ill-formed on an incomplete type, so
-// they are asked only once completeness is known. An incomplete pointee cannot be
-// judged at all, which is exactly the case this guard exists for.
 template <class T>
 consteval TraitAnswer compute_dynamic_type_is_known() {
-    // void erases the type outright: the object behind it is of some other
-    // type entirely, and nothing here names it. That is the question this
-    // guard asks, so the answer is no.
     if constexpr (std::is_void_v<T>)
         return "points at a void: nothing here names the object actually "
                "there";
@@ -92,7 +62,6 @@ consteval TraitAnswer compute_dynamic_type_is_known() {
 template <class T>
 constexpr TraitAnswer dynamic_type_is_known = compute_dynamic_type_is_known<T>();
 
-// Mostly for closure type.
 inline consteval bool has_unreflectable_state(std::meta::info type) {
     const auto context = std::meta::access_context::unchecked();
     return !std::meta::is_empty_type(type)
@@ -109,20 +78,6 @@ inline consteval bool is_copy_move_destroy_member(std::meta::info member) {
         || std::meta::is_destructor(member);
 }
 
-// A template is never a copy or move member, but it can still be *selected* for
-// a copy or a move. Against a non-const lvalue `T&`, a `template <class U>
-// T(U&&)` deduces `U = T&` and matches exactly, where the implicit
-// `T(const T&)` needs a qualification conversion; the non-template tiebreaker
-// never runs, and `T b = a;` calls user code although every special member is
-// implicit. Same for `template <class U> T& operator=(U&&)`. (`const U&` and
-// by-value forms tie with the special member and lose the tiebreaker, so only
-// the deduce-to-`T&` shapes hijack.)
-//
-// Which shape it is cannot be told from here: parameters_of rejects a template,
-// so an arity or a constraint that makes hijacking impossible — `T(It, It)`, or
-// a `requires !same_as<remove_cvref_t<U>, T>` — is indistinguishable from a
-// greedy forwarding constructor. Any such template therefore blocks the
-// default; write the special members out, or specialize the trait.
 inline consteval bool may_hijack_copy_move(std::meta::info member) {
     return std::meta::is_constructor_template(member)
         || (std::meta::is_operator_function_template(member)

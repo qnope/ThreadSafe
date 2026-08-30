@@ -22,10 +22,6 @@ public:
     value_guard(const value_guard&) = delete;
     value_guard& operator=(const value_guard&) = delete;
 
-    // Don't capture by reference, because the lock is released when the guard is destroyed.
-    // Another solution could have been to use a callable taking a reference to the value,
-    //but that would have been more verbose and less convenient.
-
     T& operator*() && noexcept = delete("a temporary guard is destroyed at the semicolon, so it cannot hand out a reference");
     T* operator->() && noexcept = delete("a temporary guard is destroyed at the semicolon, so it cannot hand out a reference");
 
@@ -87,8 +83,6 @@ public:
             std::forward<Args>(args)...);
     }
 
-    // nodiscard is load-bearing: a discarded guard is a temporary destroyed at
-    // the semicolon, i.e. a lock taken and immediately released.
     [[nodiscard]] guard lock() { return guard{mutex_, value_}; }
     [[nodiscard]] const_guard lock_shared() const {
         return const_guard{mutex_, value_};
@@ -105,8 +99,6 @@ struct is_unsafe_synchronizable<synchronized_value<T>> : is_sendable<T> {};
 template <class T>
 struct is_unsafe_lifetime_aware<synchronized_value<T>> : is_lifetime_aware<T> {};
 
-// The guard holds the lock and a pointer into the value it guards: it belongs
-// to the thread that took the lock, and it keeps nothing alive.
 template <class T, class Lock>
 struct is_unsafe_sendable<value_guard<T, Lock>> {
     static constexpr TraitAnswer value = "a value_guard holds a lock owned by the thread that took it";

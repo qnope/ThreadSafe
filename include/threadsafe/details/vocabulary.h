@@ -9,8 +9,6 @@
 
 namespace threadsafe {
 
-// std::allocator is stateless -- allowed_std_wrappers cannot say this,
-// because it is true even for a T that answers no.
 template <class T>
 struct is_unsafe_sendable<std::allocator<T>> {
     static constexpr TraitAnswer value = {};

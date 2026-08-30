@@ -171,10 +171,6 @@ static_assert(!can_launch_task<EmptyUserCopy>,
               "launch_task copies the callable onto the thread and destroys it "
               "there, so F must be sendable");
 
-// The retired is_safe_callable admitted any empty class whose own copy/move
-// members were defaulted. Emptiness is inherited but that guard was not, so a
-// derived class laundered the base's user-provided copy past the launcher.
-// is_sendable recurses through bases, which is why the trait is gone.
 static_assert(std::is_empty_v<DerivesFromEmptyUserCopy>);
 static_assert(!is_sendable_v<DerivesFromEmptyUserCopy>,
               "an empty class inherits its base's user-provided copy");

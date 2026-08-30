@@ -31,8 +31,6 @@ struct MutCache {
     mutable int parsed;
 };
 
-// Vouched for as if it synchronized itself: the point is not that a vector ever
-// does, but that the std-wrapper rule must not short-circuit the invariant.
 struct VouchedElement {
     mutable int cache;
 };

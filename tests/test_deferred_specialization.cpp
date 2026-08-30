@@ -22,12 +22,6 @@ static_assert(is_sendable_v<std::atomic<int>&>,
 static_assert(is_sendable_v<void (*)()>,
               "function pointers rely on function types being synchronizable");
 
-// The traits read each other back through the `_v` variable template, from a
-// std::meta::info, via std::meta::substitute. That resolves at evaluation time,
-// so a specialization written after the header — here, in this translation unit
-// — is still the answer when the recursion reaches the member. Were it to
-// resolve where the substitute call is written instead, Holder would be judged
-// on Opaque's raw pointer and come out non-sendable.
 namespace {
 struct Opaque {
     int* borrowed;

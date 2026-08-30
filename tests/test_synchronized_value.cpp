@@ -109,9 +109,6 @@ static_assert(std::same_as<sync_int::const_guard,
                            threadsafe::value_guard<
                                const int, std::shared_lock<std::shared_mutex>>>,
               "lock_shared — readers of a const-synchronizable T really share");
-// A T whose const form is not synchronizable: `cached` is writable through a
-// const&, so concurrent readers of a const Memo would race. The wrapper does
-// not reject such a T, it downgrades the mutex to an exclusive one.
 static_assert(!is_synchronizable_v<const Memo>,
               "the premise of the block below: a mutable member defeats const");
 static_assert(is_sendable_v<Memo>,

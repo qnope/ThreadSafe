@@ -9,13 +9,6 @@
 
 namespace threadsafe {
 
-// The one way to answer for a type the structural walk cannot read — a handle,
-// a std::allocator, a std::vector. The primary is empty: specializing it is
-// what claims the type, and the claim is final, whether it says yes or no.
-//
-// Everything the library knows about a concrete type is written here rather
-// than on is_sendable, so that the word `unsafe` appears wherever knowledge is
-// asserted instead of proved. is_sendable itself holds only its definition.
 template <class T>
 struct is_unsafe_sendable {};
 
@@ -58,16 +51,12 @@ struct is_sendable<T[]> : is_sendable<std::remove_cv_t<T>> {};
 template <class T>
 concept sendable = bool(is_sendable_v<T>);
 
-// The info-level face of the trait, named after the predicates of <meta>. Same
-// answer as is_sendable_v<T>, for code written on the reflection side.
 inline consteval TraitAnswer is_sendable_type(std::meta::info type) {
     return detail::trait_value(^^is_sendable_v, type);
 }
 
 namespace detail {
 
-// The structural default: a type is sendable when every base and every member
-// is. A default-constructed answer means yes; otherwise it says why not.
 inline consteval TraitAnswer diagnose_is_sendable(std::meta::info type) {
     using namespace std::meta;
 

@@ -40,8 +40,6 @@ private:
     std::shared_ptr<T> ptr_;
 };
 
-// The block is shared, so a reader of one copy reads through another's const:
-// sending a copy_on_write needs the T to be both sendable and read-safe.
 template <class T>
 struct is_unsafe_sendable<copy_on_write<T>> {
     static constexpr TraitAnswer value = [] {

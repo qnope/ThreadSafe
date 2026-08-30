@@ -13,15 +13,11 @@ namespace threadsafe {
 template <class F>
 concept function_type = std::is_function_v<F>;
 
-// A function is code, not state: there is nothing in it to race on. That is a
-// property of the language, so it belongs to the trait rather than to a vouch.
 template <function_type F>
 struct is_synchronizable<F> {
     static constexpr TraitAnswer value = {};
 };
 
-// An atomic synchronizes the T it holds — provided the T could be handed to
-// another thread in the first place.
 template <class T>
 struct is_unsafe_synchronizable<std::atomic<T>> : is_sendable<T> {};
 
@@ -29,20 +25,12 @@ namespace detail {
 consteval TraitAnswer diagnose_is_const_synchronizable(std::meta::info type);
 }
 
-// Thread-safe read: a const T may be read from several threads at once. Full
-// synchronizability implies it; otherwise the same structural guard as
-// is_sendable applies, and every subobject reachable through the const must be
-// read-safe in turn — a mutable member is writable through const and needs the
-// full trait, and const behind an indirection is never trusted: the pointee
-// may have been reached through a non-const alias at origin.
 template <class T>
 struct is_synchronizable<const T> {
     static constexpr TraitAnswer value
         = detail::diagnose_is_const_synchronizable(^^T);
 };
 
-// The const array forms exist because <const T> above matches a const array
-// and would otherwise tie with the <T[N]> rule of synchronizable_base.h.
 template <class T, std::size_t N>
 struct is_synchronizable<const T[N]> : is_synchronizable<const T> {};
 template <class T>
@@ -57,8 +45,6 @@ diagnose_is_const_synchronizable(std::meta::info type) {
     const auto context = access_context::unchecked();
     type = remove_cv(type);
 
-    // Claimed as read-only — the opt-in the const question has of its own,
-    // beside the one full synchronizability carries.
     if (const auto vouched = is_unsafe_synchronizable_type(add_const(type));
         vouched.answered)
         return vouched;
@@ -66,8 +52,6 @@ diagnose_is_const_synchronizable(std::meta::info type) {
     if (is_synchronizable_type(type))
         return {};
 
-    // A pointee's const is a view restriction, not an object property — the
-    // object may be written through another alias, so the full trait is asked.
     if (is_pointer_type(type)) {
         if (!is_synchronizable_type(remove_cv(remove_pointer(type))))
             return "is a pointer: the const stops at it — the pointee may "
@@ -115,21 +99,16 @@ diagnose_is_const_synchronizable(std::meta::info type) {
     for (info member : nonstatic_data_members_of(type, context)) {
         const auto member_type = type_of(member);
 
-        // mutable defeats const: this member is written through a const
-        // reference, so it needs the full (write-safe) trait.
         if (is_mutable_member(member)) {
             if (!is_synchronizable_type(remove_cv(member_type)))
                 return "a mutable member is written through a const "
                           "reference: its type must be fully synchronizable";
         }
-        // A reference member's constness is unrelated to the referent's; the
-        // referent may be shared and written through another alias.
         else if (is_reference_type(member_type)) {
             if (!is_synchronizable_type(remove_cvref(member_type)))
                 return "a reference member stops the const: its referent "
                           "must be synchronizable itself";
         }
-        // Ordinary value member: const propagates normally.
         else if (!is_synchronizable_type(add_const(member_type))) {
             return "a member is not readable from several threads at once";
         }

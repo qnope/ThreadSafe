@@ -1,5 +1,3 @@
-# Compile-time test suite: building this target IS running the tests.
-# OBJECT library so no main() is needed and the TUs are part of ALL.
 add_library(threadsafe_tests OBJECT
     test_synchronizable.cpp
     test_sendable.cpp
