@@ -95,12 +95,16 @@ private:
 
 template <class T>
 struct is_unsafe_synchronizable<synchronized_value<T>> {
-    static consteval TraitAnswer diagnose() { return is_sendable_v<T>; }
+    static consteval TraitAnswer diagnose() {
+        return is_sendable_v<T>.prepend_path(detail::pointee_step);
+    }
 };
 
 template <class T>
 struct is_unsafe_lifetime_aware<synchronized_value<T>> {
-    static consteval TraitAnswer diagnose() { return is_lifetime_aware_v<T>; }
+    static consteval TraitAnswer diagnose() {
+        return is_lifetime_aware_v<T>.prepend_path(detail::pointee_step);
+    }
 };
 
 template <class T, class Lock>

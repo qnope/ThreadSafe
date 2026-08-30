@@ -58,25 +58,29 @@ struct is_unsafe_synchronizable<const T> {
 
 template <class T, std::size_t N>
 struct is_unsafe_synchronizable<T[N]> {
-    static consteval TraitAnswer diagnose() { return is_synchronizable_v<T>; }
+    static consteval TraitAnswer diagnose() {
+        return is_synchronizable_v<T>.prepend_path(detail::element_step);
+    }
 };
 
 template <class T>
 struct is_unsafe_synchronizable<T[]> {
-    static consteval TraitAnswer diagnose() { return is_synchronizable_v<T>; }
+    static consteval TraitAnswer diagnose() {
+        return is_synchronizable_v<T>.prepend_path(detail::element_step);
+    }
 };
 
 template <class T, std::size_t N>
 struct is_unsafe_synchronizable<const T[N]> {
     static consteval TraitAnswer diagnose() {
-        return is_synchronizable_v<const T>;
+        return is_synchronizable_v<const T>.prepend_path(detail::element_step);
     }
 };
 
 template <class T>
 struct is_unsafe_synchronizable<const T[]> {
     static consteval TraitAnswer diagnose() {
-        return is_synchronizable_v<const T>;
+        return is_synchronizable_v<const T>.prepend_path(detail::element_step);
     }
 };
 
@@ -125,25 +129,31 @@ diagnose_is_const_synchronizable(std::meta::info type) {
                   "the intent";
 
     for (info base : bases_of(type, context))
-        if (!is_synchronizable_type(add_const(type_of(base))))
-            return "a base class is not readable from several threads at "
-                      "once";
+        if (const auto answer = is_synchronizable_type(add_const(type_of(base)));
+            !answer)
+            return answer.prepend_path(path_step_of_type(type_of(base)));
 
     for (info member : nonstatic_data_members_of(type, context)) {
         const auto member_type = type_of(member);
+        const auto member_step = path_step_of_member(member);
 
         if (is_mutable_member(member)) {
             if (!is_synchronizable_type(remove_cv(member_type)))
-                return "a mutable member is written through a const "
-                          "reference: its type must be fully synchronizable";
+                return TraitAnswer("a mutable member is written through a "
+                                   "const reference: its type must be fully "
+                                   "synchronizable")
+                    .prepend_path(member_step);
         }
         else if (is_reference_type(member_type)) {
             if (!is_synchronizable_type(remove_cvref(member_type)))
-                return "a reference member stops the const: its referent "
-                          "must be synchronizable itself";
+                return TraitAnswer("a reference member stops the const: its "
+                                   "referent must be synchronizable itself")
+                    .prepend_path(member_step);
         }
-        else if (!is_synchronizable_type(add_const(member_type))) {
-            return "a member is not readable from several threads at once";
+        else if (const auto answer
+                 = is_synchronizable_type(add_const(member_type));
+                 !answer) {
+            return answer.prepend_path(member_step);
         }
     }
 
