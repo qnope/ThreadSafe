@@ -2,7 +2,6 @@
 
 #include <meta>
 #include <string_view>
-#include <type_traits>
 
 namespace threadsafe {
 
@@ -33,36 +32,6 @@ inline consteval TraitAnswer trait_value(std::meta::info trait,
                                          std::meta::info type) {
     return std::meta::extract<TraitAnswer>(std::meta::substitute(trait, {type}));
 }
-
-// A structural trait walks the members of the *static* type. Through an
-// indirection the object may be of a derived type, whose extra members the walk
-// never saw, so a structural answer about a polymorphic non-final pointee proves
-// nothing about the object actually there.
-//
-// std::is_polymorphic and std::is_final are ill-formed on an incomplete type, so
-// they are asked only once completeness is known. An incomplete pointee cannot be
-// judged at all, which is exactly the case this guard exists for.
-template <class T>
-consteval TraitAnswer compute_dynamic_type_is_known() {
-    // void erases the type outright: the object behind it is of some other
-    // type entirely, and nothing here names it. That is the question this
-    // guard asks, so the answer is no.
-    if constexpr (std::is_void_v<T>)
-        return "points at a void: nothing here names the object actually "
-               "there";
-    else if constexpr (!std::meta::is_complete_type(^^T))
-        return "points at an incomplete type, so the object actually there "
-               "cannot be judged at all";
-    else if constexpr (std::is_polymorphic_v<T> && !std::is_final_v<T>)
-        return "points at a polymorphic non-final type: the object actually "
-               "there may be of a derived type, whose members the walk never "
-               "saw; make the pointee final, or specialize the trait";
-    else
-        return {};
-}
-
-template <class T>
-constexpr TraitAnswer dynamic_type_is_known = compute_dynamic_type_is_known<T>();
 
 // Mostly for closure type.
 inline consteval bool has_unreflectable_state(std::meta::info type) {
@@ -99,6 +68,41 @@ inline consteval bool may_hijack_copy_move(std::meta::info member) {
     return std::meta::is_constructor_template(member)
         || (std::meta::is_operator_function_template(member)
             && std::meta::operator_of(member) == std::meta::op_equals);
+}
+
+// A structural trait walks the members of the *static* type. Through an
+// indirection the object may be of a derived type, whose extra members the walk
+// never saw, so a structural answer about a polymorphic non-final pointee proves
+// nothing about the object actually there.
+//
+// The question belongs to the indirection, not to the type: a base subobject is
+// walked in place, where the static type is exactly what is there — asking it
+// inside is_default_type would refuse every class derived from a polymorphic
+// base, since the walk reaches that base through bases_of.
+//
+// is_polymorphic_type and is_final_type take a complete type, so they are asked
+// only once completeness is known. An incomplete pointee cannot be judged at
+// all, which is exactly the case this guard exists for.
+inline consteval TraitAnswer dynamic_type_is_known(std::meta::info type) {
+    type = std::meta::remove_cv(type);
+
+    // void erases the type outright: the object behind it is of some other
+    // type entirely, and nothing here names it. That is the question this
+    // guard asks, so the answer is no.
+    if (std::meta::is_void_type(type))
+        return "points at a void: nothing here names the object actually "
+               "there";
+
+    if (!std::meta::is_complete_type(type))
+        return "points at an incomplete type, so the object actually there "
+               "cannot be judged at all";
+
+    if (std::meta::is_polymorphic_type(type) && !std::meta::is_final_type(type))
+        return "points at a polymorphic non-final type: the object actually "
+               "there may be of a derived type, whose members the walk never "
+               "saw; make the pointee final, or specialize the trait";
+
+    return {};
 }
 
 inline consteval TraitAnswer is_default_type(std::meta::info type) {

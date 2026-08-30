@@ -67,7 +67,7 @@ struct is_lifetime_aware<std::shared_ptr<T>> {
         if (const auto answer = is_lifetime_aware_v<pointee>; !answer)
             return answer;
 
-        return detail::dynamic_type_is_known<pointee>;
+        return detail::dynamic_type_is_known(^^pointee);
     }();
 };
 
@@ -79,7 +79,7 @@ struct is_lifetime_aware<std::weak_ptr<T>> {
         if (const auto answer = is_lifetime_aware_v<pointee>; !answer)
             return answer;
 
-        return detail::dynamic_type_is_known<pointee>;
+        return detail::dynamic_type_is_known(^^pointee);
     }();
 };
 
