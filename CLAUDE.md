@@ -46,10 +46,11 @@ written in a user's translation unit still reaches it.
 ### `is_unsafe_<trait>` — the one customization point
 
 The safe traits are **closed**: `is_sendable`, `is_synchronizable` and
-`is_lifetime_aware` hold only their own definition — the structural walk and
-the language shapes (`T&`, `T*`, `T[N]`, `const T`, function types).
+`is_lifetime_aware` have no specialization at all. Each is one primary template
+delegating to its structural walk, and every walk begins by asking the unsafe
+layer.
 
-Everything else is asserted, not proved, and is written as a specialization of
+Everything a walk cannot prove is written as a specialization of
 `is_unsafe_sendable` / `is_unsafe_synchronizable` / `is_unsafe_lifetime_aware`.
 Their primary template is **empty**: specializing it is what claims the type,
 and the claim is final — yes or no, the safe trait returns it verbatim. A type
@@ -67,7 +68,9 @@ struct threadsafe::is_unsafe_synchronizable<MyType> {
 
 The library holds itself to that rule: `std::vector`, `std::unique_ptr`,
 `std::atomic`, `synchronized_value`, `copy_on_write` are all vouched for this
-way. The word `unsafe` appears wherever knowledge is asserted instead of proved.
+way, and so are the language shapes the walk cannot reach into — `T&`, `T*`,
+`T[N]`, `const T`, function types. The word `unsafe` appears wherever knowledge
+is asserted instead of proved.
 
 Because the claim is read by instantiating `is_unsafe_<trait><T>`, the
 specialization must be written before the first question about that `T`.
