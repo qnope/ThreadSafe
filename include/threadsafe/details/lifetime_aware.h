@@ -96,27 +96,31 @@ struct is_unsafe_lifetime_aware<std::reference_wrapper<T>> {
     }
 };
 
+namespace detail {
+
 template <class T>
-struct is_unsafe_lifetime_aware<std::shared_ptr<T>> {
+consteval TraitAnswer diagnose_shared_pointee() {
     using pointee = std::remove_cv_t<std::remove_all_extents_t<T>>;
 
-    static consteval TraitAnswer diagnose() {
-        if (const auto answer = is_lifetime_aware_v<pointee>; !answer)
-            return answer.prepend_path(detail::pointee_step);
+    if (const auto answer = is_lifetime_aware_v<pointee>; !answer)
+        return answer.prepend_path(pointee_step);
 
-        return detail::dynamic_type_is_known<pointee>;
+    return dynamic_type_is_known<pointee>;
+}
+
+}
+
+template <class T>
+struct is_unsafe_lifetime_aware<std::shared_ptr<T>> {
+    static consteval TraitAnswer diagnose() {
+        return detail::diagnose_shared_pointee<T>();
     }
 };
 
 template <class T>
 struct is_unsafe_lifetime_aware<std::weak_ptr<T>> {
-    using pointee = std::remove_cv_t<std::remove_all_extents_t<T>>;
-
     static consteval TraitAnswer diagnose() {
-        if (const auto answer = is_lifetime_aware_v<pointee>; !answer)
-            return answer.prepend_path(detail::pointee_step);
-
-        return detail::dynamic_type_is_known<pointee>;
+        return detail::diagnose_shared_pointee<T>();
     }
 };
 

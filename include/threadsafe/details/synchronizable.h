@@ -9,9 +9,7 @@
 namespace threadsafe {
 
 template <class F>
-concept function_type = std::is_function_v<F>;
-
-template <function_type F>
+    requires std::is_function_v<F>
 struct is_unsafe_synchronizable<F> {
     static consteval TraitAnswer diagnose() { return {}; }
 };

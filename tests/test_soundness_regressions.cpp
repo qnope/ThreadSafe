@@ -1,7 +1,6 @@
 #include <threadsafe/threadsafe.h>
 
 #include <array>
-#include <atomic>
 #include <deque>
 #include <functional>
 #include <list>
@@ -9,7 +8,6 @@
 #include <memory_resource>
 #include <mutex>
 #include <optional>
-#include <span>
 #include <stop_token>
 #include <string>
 #include <string_view>
@@ -71,9 +69,6 @@ void free_function() {}
 }
 using CapturesReference = decltype(borrow(std::declval<std::string&>()));
 
-template <class F, class... Args>
-constexpr bool can_launch_task = threadsafe::launchable_task<F, Args...>;
-
 }
 
 template <>
@@ -86,6 +81,7 @@ struct threadsafe::is_unsafe_synchronizable<SyncType> {
 using threadsafe::is_lifetime_aware_v;
 using threadsafe::is_sendable_v;
 using threadsafe::is_synchronizable_v;
+using threadsafe::launchable_task;
 
 static_assert(!is_lifetime_aware_v<HoldsPointer>,
               "a struct holding a raw pointer owns nothing");
@@ -121,9 +117,9 @@ static_assert(is_lifetime_aware_v<std::optional<std::string>>);
 static_assert(is_lifetime_aware_v<std::unique_ptr<int>>);
 
 static_assert(is_sendable_v<HoldsPointer>);
-static_assert(!can_launch_task<decltype([](HoldsPointer) {}), HoldsPointer>,
+static_assert(!launchable_task<decltype([](HoldsPointer) {}), HoldsPointer>,
               "launch_task must reject a struct-wrapped borrow");
-static_assert(!can_launch_task<decltype([](std::vector<SyncType*>) {}),
+static_assert(!launchable_task<decltype([](std::vector<SyncType*>) {}),
                                std::vector<SyncType*>>,
               "launch_task must reject a container of borrows");
 
@@ -169,28 +165,28 @@ static_assert(is_sendable_v<std::mutex>,
 static_assert(!is_sendable_v<EmptyUserCopy>,
               "empty is not enough: the copy launch_task makes onto the thread "
               "runs a user-provided constructor there");
-static_assert(!can_launch_task<EmptyUserCopy>,
+static_assert(!launchable_task<EmptyUserCopy>,
               "launch_task copies the callable onto the thread and destroys it "
               "there, so F must be sendable");
 
 static_assert(std::is_empty_v<DerivesFromEmptyUserCopy>);
 static_assert(!is_sendable_v<DerivesFromEmptyUserCopy>,
               "an empty class inherits its base's user-provided copy");
-static_assert(!can_launch_task<DerivesFromEmptyUserCopy>);
+static_assert(!launchable_task<DerivesFromEmptyUserCopy>);
 
 static_assert(!is_sendable_v<CapturesReference>,
               "a closure reflects no members whatever it captures, so its "
               "state is state the traits cannot inspect");
-static_assert(!can_launch_task<CapturesReference>,
+static_assert(!launchable_task<CapturesReference>,
               "a callable borrowing a local must not outlive the launcher");
 
 static_assert(is_sendable_v<std::stop_token> && is_lifetime_aware_v<std::stop_token>,
               "the injected argument must satisfy the traits on its own");
-static_assert(can_launch_task<decltype([](std::stop_token) {})>);
+static_assert(launchable_task<decltype([](std::stop_token) {})>);
 
 static_assert(is_lifetime_aware_v<void (*)()>,
               "functions have static storage duration");
-static_assert(can_launch_task<decltype(&free_function)>,
+static_assert(launchable_task<decltype(&free_function)>,
               "a plain function must be launchable");
 
 static_assert(is_sendable_v<void (*const)()>,

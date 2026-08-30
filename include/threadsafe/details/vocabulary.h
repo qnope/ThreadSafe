@@ -2,7 +2,6 @@
 
 #include <memory>
 #include <stop_token>
-#include <type_traits>
 
 #include <threadsafe/details/lifetime_aware.h>
 #include <threadsafe/details/sendable.h>

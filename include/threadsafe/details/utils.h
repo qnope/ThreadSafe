@@ -34,11 +34,8 @@ struct TraitAnswer {
         if (error_message == nullptr)
             return *this;
 
-        std::vector<const char *> extended_path;
-        extended_path.reserve(path_step_count + 1);
-        extended_path.push_back(std::define_static_string(step));
-        extended_path.insert(extended_path.end(), path_steps,
-                             path_steps + path_step_count);
+        std::vector<const char *> extended_path{std::define_static_string(step)};
+        extended_path.append_range(paths());
 
         const auto promoted_path = std::define_static_array(extended_path);
 
@@ -148,33 +145,28 @@ inline consteval bool has_unreflectable_state(std::meta::info type) {
         && std::meta::nonstatic_data_members_of(type, context).empty();
 }
 
-inline consteval bool is_copy_move_destroy_member(std::meta::info member) {
-    return std::meta::is_copy_constructor(member)
-        || std::meta::is_move_constructor(member)
-        || std::meta::is_copy_assignment(member)
-        || std::meta::is_move_assignment(member)
-        || std::meta::is_destructor(member);
-}
-
-inline consteval bool may_hijack_copy_move(std::meta::info member) {
-    return std::meta::is_constructor_template(member)
-        || (std::meta::is_operator_function_template(member)
-            && std::meta::operator_of(member) == std::meta::op_equals);
-}
-
 inline consteval TraitAnswer is_default_type(std::meta::info type) {
     const auto context = std::meta::access_context::unchecked();
 
     for (std::meta::info member : std::meta::members_of(type, context)) {
-        if (may_hijack_copy_move(member))
+        const bool may_hijack_copy_move =
+            std::meta::is_constructor_template(member)
+            || (std::meta::is_operator_function_template(member)
+                && std::meta::operator_of(member) == std::meta::op_equals);
+        if (may_hijack_copy_move)
             return "has a constructor or assignment template that may be "
                       "selected as a copy or a move; write the special "
                       "members out, or specialize the trait";
 
-        if (!is_copy_move_destroy_member(member))
-            continue;
-
-        if (!std::meta::is_defaulted(member) && !std::meta::is_deleted(member))
+        const bool is_copy_move_destroy =
+            std::meta::is_copy_constructor(member)
+            || std::meta::is_move_constructor(member)
+            || std::meta::is_copy_assignment(member)
+            || std::meta::is_move_assignment(member)
+            || std::meta::is_destructor(member);
+        if (is_copy_move_destroy
+            && !std::meta::is_defaulted(member)
+            && !std::meta::is_deleted(member))
             return "has a user-written copy, move or destructor that can "
                       "share state the members do not show; specialize the "
                       "trait to state the intent";

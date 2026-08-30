@@ -21,15 +21,6 @@ struct Memo {
 using sync_int = threadsafe::synchronized_value<int>;
 using sync_memo = threadsafe::synchronized_value<Memo>;
 
-template <class F, class... Args>
-constexpr bool can_launch_task = threadsafe::launchable_task<F, Args...>;
-
-template <class F, class... Args>
-constexpr bool can_launch_scoped_task =
-    requires(threadsafe::asynchronous_task_launcher l, F f, Args... args) {
-        l.launch_scoped_task(f, args...);
-    };
-
 template <class T>
 constexpr bool can_lock = requires(T v) { v.lock(); };
 template <class T>
@@ -39,6 +30,8 @@ constexpr bool can_lock_shared = requires(T v) { v.lock_shared(); };
 using threadsafe::is_lifetime_aware_v;
 using threadsafe::is_sendable_v;
 using threadsafe::is_synchronizable_v;
+using threadsafe::launchable_scoped_task;
+using threadsafe::launchable_task;
 
 static_assert(is_synchronizable_v<sync_int>,
               "is_synchronizable — the mutex serializes access, so a sendable "
@@ -69,18 +62,18 @@ static_assert(is_sendable_v<std::shared_ptr<sync_int>>
                   && is_lifetime_aware_v<std::shared_ptr<sync_int>>,
               "a shared_ptr to a synchronized_value is the intended way to "
               "share a user type");
-static_assert(can_launch_task<decltype([](std::shared_ptr<sync_int>) {}),
+static_assert(launchable_task<decltype([](std::shared_ptr<sync_int>) {}),
                               std::shared_ptr<sync_int>>,
               "launch_task — the whole point of the type: a checked path for "
               "sharing mutable state");
 
-static_assert(!can_launch_task<decltype([](sync_int*) {}), sync_int*>,
+static_assert(!launchable_task<decltype([](sync_int*) {}), sync_int*>,
               "launch_task — a raw pointer is sendable here, the pointee being "
               "synchronizable, but it keeps nothing alive");
-static_assert(!can_launch_task<decltype([](sync_int::guard) {}),
+static_assert(!launchable_task<decltype([](sync_int::guard) {}),
                                sync_int::guard>,
               "launch_task — a guard does not cross a thread boundary");
-static_assert(can_launch_scoped_task<decltype([](sync_int&) {}),
+static_assert(launchable_scoped_task<decltype([](sync_int&) {}),
                                      std::reference_wrapper<sync_int>>,
               "launch_scoped_task — the launcher joins, so a reference to a "
               "synchronizable object may cross");
@@ -150,9 +143,9 @@ static_assert(!is_sendable_v<sync_memo::guard>
 static_assert(!is_lifetime_aware_v<sync_memo::guard>
                   && !is_lifetime_aware_v<sync_memo::const_guard>);
 
-static_assert(can_launch_task<decltype([](std::shared_ptr<sync_memo>) {}),
+static_assert(launchable_task<decltype([](std::shared_ptr<sync_memo>) {}),
                               std::shared_ptr<sync_memo>>,
               "sharing a const-unsafe T across threads is allowed once wrapped");
-static_assert(!can_launch_task<decltype([](Memo&) {}),
+static_assert(!launchable_task<decltype([](Memo&) {}),
                                std::reference_wrapper<Memo>>,
               "and refused when it is not");

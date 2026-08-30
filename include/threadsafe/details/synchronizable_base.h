@@ -21,25 +21,18 @@ is_unsafe_synchronizable_type(std::meta::info type) {
 }
 
 namespace detail {
-
 consteval TraitAnswer diagnose_is_const_synchronizable(std::meta::info type);
-
-inline consteval TraitAnswer diagnose_is_synchronizable(std::meta::info type) {
-    if (const auto vouched = is_unsafe_synchronizable_type(type);
-        vouched.answered)
-        return vouched;
-
-    return "carries no synchronization of its own: is_unsafe_synchronizable<T> "
-           "is opt-in, so specialize it to vouch for a type that "
-           "synchronizes itself";
-}
-
 }
 
 template <class T>
 struct is_synchronizable {
     static consteval TraitAnswer diagnose() {
-        return detail::diagnose_is_synchronizable(^^T);
+        if (const auto vouched = is_unsafe_synchronizable_v<T>; vouched.answered)
+            return vouched;
+
+        return "carries no synchronization of its own: "
+               "is_unsafe_synchronizable<T> is opt-in, so specialize it to "
+               "vouch for a type that synchronizes itself";
     }
 };
 
@@ -61,7 +54,7 @@ struct is_unsafe_synchronizable<const T> {
 template <class T, std::size_t N>
 struct is_unsafe_synchronizable<T[N]> {
     static consteval TraitAnswer diagnose() {
-        return is_synchronizable_v<T>.prepend_path(detail::element_step);
+        return is_unsafe_synchronizable_v<T[]>;
     }
 };
 
@@ -75,7 +68,7 @@ struct is_unsafe_synchronizable<T[]> {
 template <class T, std::size_t N>
 struct is_unsafe_synchronizable<const T[N]> {
     static consteval TraitAnswer diagnose() {
-        return is_synchronizable_v<const T>.prepend_path(detail::element_step);
+        return is_unsafe_synchronizable_v<const T[]>;
     }
 };
 

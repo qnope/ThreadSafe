@@ -51,10 +51,7 @@ struct is_unsafe_sendable<T&> {
 
 template <class T>
 struct is_unsafe_sendable<T&&> {
-    static consteval TraitAnswer diagnose() {
-        return is_synchronizable_v<std::remove_cv_t<T>>.prepend_path(
-            detail::referent_step);
-    }
+    static consteval TraitAnswer diagnose() { return is_unsafe_sendable_v<T&>; }
 };
 
 template <class T>

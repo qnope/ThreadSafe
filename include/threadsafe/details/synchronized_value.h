@@ -46,26 +46,14 @@ class synchronized_value {
                   "boundaries — one thread at a time — so T must be sendable");
 
 public:
-    static consteval auto get_mutex_type() {
-        if constexpr (is_synchronizable_v<const T>) {
-            return ^^std::shared_mutex;
-        } else {
-            return ^^std::mutex;
-        }
-    }
+    static constexpr bool shared_readable = bool(is_synchronizable_v<const T>);
 
-    using mutex = [:get_mutex_type():];
-
-    static consteval auto get_const_guard_type() {
-        if constexpr (is_synchronizable_v<const T>) {
-            return ^^value_guard<const T, std::shared_lock<mutex>>;
-        } else {
-            return ^^value_guard<const T, std::unique_lock<mutex>>;
-        }
-    }
-
+    using mutex = std::conditional_t<shared_readable, std::shared_mutex,
+                                     std::mutex>;
     using guard = value_guard<T, std::unique_lock<mutex>>;
-    using const_guard = [:get_const_guard_type():];
+    using const_guard = value_guard<
+        const T, std::conditional_t<shared_readable, std::shared_lock<mutex>,
+                                    std::unique_lock<mutex>>>;
 
     template <class... Args>
         requires std::constructible_from<T, Args...>

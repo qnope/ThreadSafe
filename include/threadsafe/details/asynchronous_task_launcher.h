@@ -72,15 +72,9 @@ inline consteval std::string_view explain(TraitAnswer answer,
                                      + " because it " + rooted.error_message);
 }
 
-template <class T>
-consteval void assert_task_participant() {
-    static_assert(task_participant<T>, explain(is_task_participant_v<T>, ^^T));
-}
-
-template <class T>
-consteval void assert_scoped_task_participant() {
-    static_assert(scoped_task_participant<T>,
-                  explain(is_scoped_task_participant_v<T>, ^^T));
+template <class T, const TraitAnswer& answer>
+consteval void assert_participant() {
+    static_assert(bool(answer), explain(answer, ^^T));
 }
 
 }
@@ -99,8 +93,8 @@ public:
 
     template <typename F, typename... Args>
     void launch_task(F, Args...) {
-        detail::assert_task_participant<F>();
-        (detail::assert_task_participant<Args>(), ...);
+        detail::assert_participant<F, is_task_participant_v<F>>();
+        (detail::assert_participant<Args, is_task_participant_v<Args>>(), ...);
     }
 
     template <typename F, typename... Args>
@@ -112,8 +106,10 @@ public:
 
     template <typename F, typename... Args>
     void launch_scoped_task(F, Args...) {
-        detail::assert_scoped_task_participant<F>();
-        (detail::assert_scoped_task_participant<Args>(), ...);
+        detail::assert_participant<F, is_scoped_task_participant_v<F>>();
+        (detail::assert_participant<Args,
+                                    is_scoped_task_participant_v<Args>>(),
+         ...);
     }
 
 private:

@@ -56,35 +56,11 @@ wrapped_types_of(std::meta::info type) {
     return wrapped;
 }
 
-inline consteval TraitAnswer std_wrapper_is_sendable(std::meta::info type) {
-    if (is_synchronizable_type(type))
-        return {};
-
-    for (std::meta::info wrapped : wrapped_types_of(type))
-        if (const auto answer = is_sendable_type(wrapped); !answer)
-            return answer.prepend_path(path_step_of_type(wrapped));
-
-    return {};
-}
-
 inline consteval TraitAnswer
-std_wrapper_is_const_synchronizable(std::meta::info type) {
-    if (is_synchronizable_type(type))
-        return {};
-
+all_wrapped_types(std::meta::info type,
+                  TraitAnswer (*question)(std::meta::info)) {
     for (std::meta::info wrapped : wrapped_types_of(type))
-        if (const auto answer
-            = is_synchronizable_type(std::meta::add_const(wrapped));
-            !answer)
-            return answer.prepend_path(path_step_of_type(wrapped));
-
-    return {};
-}
-
-inline consteval TraitAnswer
-std_wrapper_is_lifetime_aware(std::meta::info type) {
-    for (std::meta::info wrapped : wrapped_types_of(type))
-        if (const auto answer = is_lifetime_aware_type(wrapped); !answer)
+        if (const auto answer = question(wrapped); !answer)
             return answer.prepend_path(path_step_of_type(wrapped));
 
     return {};
@@ -95,21 +71,27 @@ std_wrapper_is_lifetime_aware(std::meta::info type) {
 template <detail::std_wrapper T>
 struct is_unsafe_sendable<T> {
     static consteval TraitAnswer diagnose() {
-        return detail::std_wrapper_is_sendable(^^T);
+        if (is_synchronizable_type(^^T))
+            return {};
+        return detail::all_wrapped_types(^^T, is_sendable_type);
     }
 };
 
 template <detail::std_wrapper T>
 struct is_unsafe_synchronizable<const T> {
     static consteval TraitAnswer diagnose() {
-        return detail::std_wrapper_is_const_synchronizable(^^T);
+        if (is_synchronizable_type(^^T))
+            return {};
+        return detail::all_wrapped_types(^^T, [](std::meta::info wrapped) consteval {
+            return is_synchronizable_type(std::meta::add_const(wrapped));
+        });
     }
 };
 
 template <detail::std_wrapper T>
 struct is_unsafe_lifetime_aware<T> {
     static consteval TraitAnswer diagnose() {
-        return detail::std_wrapper_is_lifetime_aware(^^T);
+        return detail::all_wrapped_types(^^T, is_lifetime_aware_type);
     }
 };
 

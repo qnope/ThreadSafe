@@ -50,9 +50,6 @@ struct Tagged {
     int value;
 };
 
-template <class F, class... Args>
-constexpr bool can_launch_task = threadsafe::launchable_task<F, Args...>;
-
 template <class C>
 constexpr bool can_detach = requires(C c) { c.as_mutable(); };
 
@@ -70,6 +67,7 @@ struct threadsafe::is_unsafe_synchronizable<SyncCache> {
 using threadsafe::is_lifetime_aware_v;
 using threadsafe::is_sendable_v;
 using threadsafe::is_synchronizable_v;
+using threadsafe::launchable_task;
 
 static_assert(is_sendable_v<cow<int>>,
               "is_sendable — readers only ever see a const T, and a writer "
@@ -138,8 +136,8 @@ static_assert(!can_detach<cow<std::unique_ptr<int>>>,
               "as_mutable — a T that cannot be copied gives a read-only "
               "handle, not a hard error");
 
-static_assert(can_launch_task<decltype([](cow<std::string>) {}),
+static_assert(launchable_task<decltype([](cow<std::string>) {}),
                               cow<std::string>>,
               "launch_task — the point of the type: a shared, unsynchronized "
               "read that costs no lock and no eager copy");
-static_assert(!can_launch_task<decltype([](cow<Cache>) {}), cow<Cache>>);
+static_assert(!launchable_task<decltype([](cow<Cache>) {}), cow<Cache>>);
