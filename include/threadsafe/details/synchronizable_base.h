@@ -21,17 +21,12 @@ inline consteval bool is_unsafe_synchronizable_type(std::meta::info type) {
 }
 
 namespace detail {
-consteval bool diagnose_is_const_synchronizable(std::meta::info type);
+consteval bool diagnose_is_synchronizable(std::meta::info type);
 }
 
-template <class T> struct is_synchronizable : is_unsafe_synchronizable<T> {};
-
 template <class T>
-struct is_synchronizable<const T>
-    : std::disjunction<
-          is_unsafe_synchronizable<const T>,
-          std::bool_constant<detail::diagnose_is_const_synchronizable(
-              ^^const T)>> {};
+struct is_synchronizable
+    : std::bool_constant<detail::diagnose_is_synchronizable(^^T)> {};
 
 template <class T>
 constexpr bool is_synchronizable_v =
@@ -40,10 +35,6 @@ constexpr bool is_synchronizable_v =
 inline consteval bool is_synchronizable_type(std::meta::info type) {
   return detail::trait_value(^^is_synchronizable_v, type);
 }
-
-template <class T>
-  requires(std::is_function_v<T>)
-struct is_synchronizable<T> : std::true_type {};
 
 template <class T>
   requires(std::is_array_v<T>)
@@ -61,9 +52,17 @@ inline consteval bool const_type_is_synchronizable(std::meta::info type) {
   return is_synchronizable_type(add_const(type));
 }
 
-inline consteval bool diagnose_is_const_synchronizable(std::meta::info type) {
+inline consteval bool diagnose_is_synchronizable(std::meta::info type) {
   const auto context = std::meta::access_context::unchecked();
-  type = remove_cv(type);
+
+  if (is_unsafe_synchronizable_type(type))
+    return true;
+
+  if (is_function_type(remove_pointer(type)))
+    return true;
+
+  if (!is_const(type))
+    return false;
 
   if (is_pointer_type(type))
     return is_synchronizable_type(remove_cv(remove_pointer(type)));
