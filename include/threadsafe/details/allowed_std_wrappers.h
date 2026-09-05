@@ -59,10 +59,12 @@ concept std_wrapper = is_allowed_std_wrapper(^^T);
 inline consteval std::vector<std::meta::info>
 wrapped_types_of(std::meta::info type) {
   std::vector<std::meta::info> wrapped;
+  const bool wrapper_is_const = is_const(type);
 
   for (auto argument : template_arguments_of(dealias(type)))
     if (is_type(argument))
-      wrapped.push_back(remove_cv(argument));
+      wrapped.push_back(wrapper_is_const ? add_const(remove_cv(argument))
+                                         : remove_cv(argument));
 
   return wrapped;
 }
@@ -86,8 +88,8 @@ struct is_unsafe_sendable<T>
 template <detail::std_wrapper T>
 struct is_unsafe_synchronizable<const T>
     : std::bool_constant<is_synchronizable_type(^^T) ||
-                         detail::all_wrapped_types(
-                             ^^T, detail::const_type_is_synchronizable)> {};
+                         detail::all_wrapped_types(^^const T,
+                                                   is_synchronizable_type)> {};
 
 template <detail::std_wrapper T>
 struct is_unsafe_lifetime_aware<T>

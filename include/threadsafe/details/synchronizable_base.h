@@ -36,21 +36,7 @@ inline consteval bool is_synchronizable_type(std::meta::info type) {
   return detail::trait_value(^^is_synchronizable_v, type);
 }
 
-template <class T>
-  requires(std::is_array_v<T>)
-struct is_synchronizable<const T>
-    : is_synchronizable<const std::remove_all_extents_t<T>> {};
-
-template <class T>
-  requires(std::is_array_v<T>)
-struct is_synchronizable<T> : is_synchronizable<std::remove_all_extents_t<T>> {
-};
-
 namespace detail {
-
-inline consteval bool const_type_is_synchronizable(std::meta::info type) {
-  return is_synchronizable_type(add_const(type));
-}
 
 inline consteval bool diagnose_is_synchronizable(std::meta::info type) {
   const auto context = std::meta::access_context::unchecked();
@@ -60,6 +46,9 @@ inline consteval bool diagnose_is_synchronizable(std::meta::info type) {
 
   if (is_function_type(remove_pointer(type)))
     return true;
+
+  if (is_array_type(type))
+    return is_synchronizable_type(remove_all_extents(type));
 
   if (!is_const(type))
     return false;
@@ -74,7 +63,7 @@ inline consteval bool diagnose_is_synchronizable(std::meta::info type) {
     return false;
 
   for (auto base : bases_of(type, context))
-    if (!const_type_is_synchronizable(type_of(base)))
+    if (!is_synchronizable_type(add_const(type_of(base))))
       return false;
 
   for (auto member : nonstatic_data_members_of(type, context)) {
@@ -86,7 +75,7 @@ inline consteval bool diagnose_is_synchronizable(std::meta::info type) {
     } else if (is_reference_type(member_type)) {
       if (!is_synchronizable_type(remove_cvref(member_type)))
         return false;
-    } else if (!const_type_is_synchronizable(member_type)) {
+    } else if (!is_synchronizable_type(add_const(member_type))) {
       return false;
     }
   }
