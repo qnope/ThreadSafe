@@ -57,13 +57,11 @@ struct is_synchronizable<T> : is_synchronizable<std::remove_all_extents_t<T>> {
 namespace detail {
 
 inline consteval bool const_type_is_synchronizable(std::meta::info type) {
-  return is_synchronizable_type(std::meta::add_const(type));
+  return is_synchronizable_type(add_const(type));
 }
 
 inline consteval bool diagnose_is_const_synchronizable(std::meta::info type) {
-  using namespace std::meta;
-
-  const auto context = access_context::unchecked();
+  const auto context = std::meta::access_context::unchecked();
   type = remove_cv(type);
 
   if (is_pointer_type(type))
@@ -72,14 +70,14 @@ inline consteval bool diagnose_is_const_synchronizable(std::meta::info type) {
   if (is_scalar_type(type))
     return true;
 
-  if (!is_walkable_class(type))
+  if (!is_walkable_type(type))
     return false;
 
-  for (info base : bases_of(type, context))
+  for (auto base : bases_of(type, context))
     if (!const_type_is_synchronizable(type_of(base)))
       return false;
 
-  for (info member : nonstatic_data_members_of(type, context)) {
+  for (auto member : nonstatic_data_members_of(type, context)) {
     const auto member_type = type_of(member);
 
     if (is_mutable_member(member)) {

@@ -46,8 +46,6 @@ inline consteval bool is_sendable_type(std::meta::info type) {
 namespace detail {
 
 inline consteval bool diagnose_is_sendable(std::meta::info type) {
-  using namespace std::meta;
-
   if (const auto unqualified = remove_cv(type); unqualified != type)
     return is_sendable_type(unqualified);
 
@@ -57,7 +55,7 @@ inline consteval bool diagnose_is_sendable(std::meta::info type) {
   if (is_scalar_type(type) || is_synchronizable_type(type))
     return true;
 
-  if (!is_walkable_class(type))
+  if (!is_walkable_type(type))
     return false;
 
   return all_bases_and_members(type, is_sendable_type);
