@@ -36,11 +36,18 @@ The recursion reads the traits reflectively, through the `_v` variable
 (`detail::trait_value` substitutes `^^is_sendable_v`), so a specialization
 written in a user's translation unit still reaches it.
 
-The walk is **conservative**: everything it cannot prove is a no. Incomplete
-types, unreflectable state, borrowed ranges, non-default types (a user-written
-copy, move or destructor, or a constructor template that could hijack them —
+The walk is **conservative**: everything it cannot prove is a no.
+Unreflectable state, borrowed ranges, non-default types (a user-written copy,
+move or destructor, or a constructor template that could hijack them —
 `detail::is_default_type`) all fail before the member walk even starts. A "no"
 therefore never needs to be asserted; only trust does.
+
+Two questions are not answered but **rejected**: `void` and incomplete types
+(unbounded arrays excepted — their element carries the answer) hit a
+`static_assert` in `detail::assert_queryable_type`, instantiated by every
+`_v`. Recursion goes through `_v` too, so a `void*` member or an incomplete
+pointee poisons the whole question instead of answering false: complete the
+type — or vouch for it — before asking.
 
 ### `is_unsafe_<trait>` — the one customization point, opt-in only
 

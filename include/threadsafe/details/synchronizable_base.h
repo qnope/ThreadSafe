@@ -34,7 +34,8 @@ struct is_synchronizable<const T>
               ^^const T)>> {};
 
 template <class T>
-constexpr bool is_synchronizable_v = is_synchronizable<T>::value;
+constexpr bool is_synchronizable_v =
+    detail::assert_queryable_type<T>() && is_synchronizable<T>::value;
 
 inline consteval bool is_synchronizable_type(std::meta::info type) {
   return detail::trait_value(^^is_synchronizable_v, type);

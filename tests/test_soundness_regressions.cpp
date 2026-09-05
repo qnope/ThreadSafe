@@ -52,11 +52,6 @@ struct PolyBase {
 };
 struct PolyFinal final : PolyBase {};
 
-class Implementation;
-struct Pimpl {
-    std::unique_ptr<Implementation> impl;
-};
-
 struct WithCArray {
     char data[64];
     unsigned len;
@@ -143,12 +138,6 @@ static_assert(!is_lifetime_aware_v<std::weak_ptr<PolyBase>>,
 static_assert(is_lifetime_aware_v<std::unique_ptr<PolyFinal>>
                   && is_lifetime_aware_v<std::shared_ptr<PolyFinal>>,
               "a final pointee has no unknown dynamic type");
-
-static_assert(!is_sendable_v<Pimpl>,
-              "an incomplete pointee answers false, not a libstdc++ hard error "
-              "from is_polymorphic_v on an incomplete type");
-static_assert(!is_lifetime_aware_v<std::shared_ptr<Implementation>>,
-              "an incomplete pointee cannot be judged at all");
 
 static_assert(is_sendable_v<int[4]>, "arrays follow their element type");
 static_assert(!is_sendable_v<int*[4]>,

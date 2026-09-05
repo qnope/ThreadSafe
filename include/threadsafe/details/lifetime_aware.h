@@ -28,7 +28,8 @@ template <class T> struct is_lifetime_aware {
 };
 
 template <class T>
-constexpr bool is_lifetime_aware_v = is_lifetime_aware<T>::value;
+constexpr bool is_lifetime_aware_v =
+    detail::assert_queryable_type<T>() && is_lifetime_aware<T>::value;
 
 template <class T>
 concept lifetime_aware = is_lifetime_aware_v<T>;
@@ -58,9 +59,6 @@ inline consteval bool diagnose_is_lifetime_aware(std::meta::info type) {
 
   if (is_unsafe_lifetime_aware_type(type))
     return true;
-
-  if (is_void_type(type))
-    return false;
 
   if (is_function_type(remove_pointer(type)))
     return true;

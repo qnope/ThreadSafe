@@ -24,7 +24,9 @@ consteval bool diagnose_is_sendable(std::meta::info type);
 template <class T>
 struct is_sendable : std::bool_constant<detail::diagnose_is_sendable(^^T)> {};
 
-template <class T> constexpr bool is_sendable_v = is_sendable<T>::value;
+template <class T>
+constexpr bool is_sendable_v =
+    detail::assert_queryable_type<T>() && is_sendable<T>::value;
 
 template <class T>
 concept sendable = is_sendable_v<T>;

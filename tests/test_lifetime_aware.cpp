@@ -64,10 +64,6 @@ static_assert(!is_lifetime_aware_v<std::weak_ptr<std::span<int>>>,
 static_assert(!is_lifetime_aware_v<std::shared_ptr<int*>>,
               "is_lifetime_aware — a shared raw pointer is still a borrow");
 
-static_assert(!is_lifetime_aware_v<std::shared_ptr<void>>,
-              "is_lifetime_aware — void erases the pointee: the control block "
-              "keeps some object alive, but nothing says that object is not "
-              "itself a borrower, exactly as the span case above");
 static_assert(is_lifetime_aware_v<std::shared_ptr<std::string[]>>,
               "is_lifetime_aware — the question reaches the element type");
 static_assert(is_lifetime_aware_v<std::shared_ptr<const std::string>>,

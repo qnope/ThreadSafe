@@ -9,6 +9,16 @@ inline consteval bool trait_value(std::meta::info trait, std::meta::info type) {
   return extract<bool>(substitute(trait, {type}));
 }
 
+template <class T> consteval bool assert_queryable_type() {
+  static_assert(!std::is_void_v<T>,
+                "void is not a value: there is nothing to send, share or "
+                "keep alive");
+  static_assert(is_complete_type(^^std::remove_all_extents_t<T>),
+                "an incomplete type has unknown members: complete it before "
+                "asking the traits");
+  return true;
+}
+
 template <typename T> struct is_smart_pointer : std::false_type {};
 
 template <typename T>
@@ -31,14 +41,7 @@ inline consteval bool is_smart_pointer_type(std::meta::info info) {
 }
 
 template <class T> consteval bool compute_dynamic_type_is_known() {
-  if constexpr (std::is_void_v<T>)
-    return false;
-  else if constexpr (!is_complete_type(^^T))
-    return false;
-  else if constexpr (std::is_polymorphic_v<T> && !std::is_final_v<T>)
-    return false;
-  else
-    return true;
+  return !std::is_polymorphic_v<T> || std::is_final_v<T>;
 }
 
 template <class T>
