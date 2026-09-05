@@ -8,12 +8,12 @@
 namespace {
 
 struct Plain {
-    int value;
-    double ratio;
+  int value;
+  double ratio;
 };
 
 struct DerivedFromPlain : Plain {
-    std::string name;
+  std::string name;
 };
 
 using threadsafe::is_lifetime_aware_v;
@@ -41,7 +41,7 @@ static_assert(is_lifetime_aware_v<void (*)()>);
 static_assert(is_lifetime_aware_v<Plain[2]>);
 
 struct Borrowing {
-    int *borrowed;
+  int *borrowed;
 };
 
 static_assert(!is_sendable_v<Borrowing>);
@@ -49,11 +49,11 @@ static_assert(!is_synchronizable_v<const Borrowing>);
 static_assert(!is_lifetime_aware_v<Borrowing>);
 
 struct BorrowingMiddle {
-    Borrowing inner;
+  Borrowing inner;
 };
 
 struct BorrowingOuter {
-    BorrowingMiddle middle;
+  BorrowingMiddle middle;
 };
 
 static_assert(!is_sendable_v<BorrowingOuter>);
@@ -71,12 +71,12 @@ static_assert(!is_sendable_v<std::shared_ptr<Borrowing>>);
 static_assert(!is_lifetime_aware_v<std::unique_ptr<Borrowing>>);
 
 struct Refused {
-    int value;
+  int value;
 };
 
 struct RefusedSendable : Refused {};
 
-}
+} // namespace
 
 template <>
 struct threadsafe::is_unsafe_sendable<RefusedSendable> : std::true_type {};
@@ -92,9 +92,9 @@ static_assert(!threadsafe::is_unsafe_lifetime_aware_v<Refused>);
 static_assert(threadsafe::is_unsafe_sendable_v<RefusedSendable>);
 
 struct HoldsVouched {
-    RefusedSendable member;
+  RefusedSendable member;
 };
 
 static_assert(is_sendable_v<HoldsVouched>);
 
-}
+} // namespace
