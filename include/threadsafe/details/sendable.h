@@ -29,16 +29,6 @@ template <class T> constexpr bool is_sendable_v = is_sendable<T>::value;
 template <class T>
 concept sendable = is_sendable_v<T>;
 
-template <class T>
-  requires(std::is_reference_v<T>)
-struct is_sendable<T> : is_synchronizable<std::remove_reference_t<T>> {};
-
-template <class T> struct is_sendable<T *> : is_synchronizable<T> {};
-
-template <class T>
-  requires(std::is_array_v<T>)
-struct is_sendable<T> : is_sendable<std::remove_all_extents_t<T>> {};
-
 inline consteval bool is_sendable_type(std::meta::info type) {
   return detail::trait_value(^^is_sendable_v, type);
 }
@@ -51,6 +41,12 @@ inline consteval bool diagnose_is_sendable(std::meta::info type) {
 
   if (is_unsafe_sendable_type(type))
     return true;
+
+  if (is_reference_type(type) || is_pointer_type(type))
+    return is_synchronizable_type(remove_reference(remove_pointer(type)));
+
+  if (is_array_type(type))
+    return is_sendable_type(remove_all_extents(type));
 
   if (is_scalar_type(type) || is_synchronizable_type(type))
     return true;

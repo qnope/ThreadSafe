@@ -50,27 +50,10 @@ template <detail::smart_pointer T>
 struct is_lifetime_aware<T>
     : std::bool_constant<detail::pointee_is_lifetime_aware<T>()> {};
 
-template <class T>
-  requires(std::is_reference_v<T> || std::is_pointer_v<T>)
-struct is_lifetime_aware<T> : std::false_type {};
-
-template <class T>
-  requires(std::is_function_v<T>)
-struct is_lifetime_aware<T *> : std::true_type {};
-
-template <class T>
-  requires(std::is_array_v<T>)
-struct is_lifetime_aware<T> : is_lifetime_aware<std::remove_all_extents_t<T>> {
-};
-
 namespace detail {
 
 inline consteval bool diagnose_is_lifetime_aware(std::meta::info type) {
-  using namespace std::meta;
-
-  const auto unqualified = remove_cv(type);
-
-  if (unqualified != type)
+  if (const auto unqualified = remove_cv(type); unqualified != type)
     return is_lifetime_aware_type(unqualified);
 
   if (is_unsafe_lifetime_aware_type(type))
@@ -78,6 +61,15 @@ inline consteval bool diagnose_is_lifetime_aware(std::meta::info type) {
 
   if (is_void_type(type))
     return false;
+
+  if (is_function_type(remove_pointer(type)))
+    return true;
+
+  if (is_reference_type(type) || is_pointer_type(type))
+    return false;
+
+  if (is_array_type(type))
+    return is_lifetime_aware_type(remove_all_extents(type));
 
   if (extract<bool>(substitute(^^std::ranges::borrowed_range, {
                                                                   type})))
