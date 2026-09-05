@@ -56,6 +56,10 @@ struct is_synchronizable<T> : is_synchronizable<std::remove_all_extents_t<T>> {
 
 namespace detail {
 
+inline consteval bool const_type_is_synchronizable(std::meta::info type) {
+  return is_synchronizable_type(std::meta::add_const(type));
+}
+
 inline consteval bool diagnose_is_const_synchronizable(std::meta::info type) {
   using namespace std::meta;
 
@@ -68,20 +72,11 @@ inline consteval bool diagnose_is_const_synchronizable(std::meta::info type) {
   if (is_scalar_type(type))
     return true;
 
-  if (!is_class_type(type) && !is_union_type(type))
-    return false;
-
-  if (!is_complete_type(type))
-    return false;
-
-  if (!is_default_type(type))
-    return false;
-
-  if (has_unreflectable_state(type))
+  if (!is_walkable_class(type))
     return false;
 
   for (info base : bases_of(type, context))
-    if (!is_synchronizable_type(add_const(type_of(base))))
+    if (!const_type_is_synchronizable(type_of(base)))
       return false;
 
   for (info member : nonstatic_data_members_of(type, context)) {
@@ -93,7 +88,7 @@ inline consteval bool diagnose_is_const_synchronizable(std::meta::info type) {
     } else if (is_reference_type(member_type)) {
       if (!is_synchronizable_type(remove_cvref(member_type)))
         return false;
-    } else if (!is_synchronizable_type(add_const(member_type))) {
+    } else if (!const_type_is_synchronizable(member_type)) {
       return false;
     }
   }

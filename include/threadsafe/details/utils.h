@@ -48,6 +48,22 @@ inline consteval bool has_unreflectable_state(std::meta::info type) {
         && std::meta::nonstatic_data_members_of(type, context).empty();
 }
 
+inline consteval bool all_bases_and_members(std::meta::info type,
+                                            bool (*question)(std::meta::info)) {
+    const auto context = std::meta::access_context::unchecked();
+
+    for (std::meta::info base : std::meta::bases_of(type, context))
+        if (!question(std::meta::type_of(base)))
+            return false;
+
+    for (std::meta::info member :
+         std::meta::nonstatic_data_members_of(type, context))
+        if (!question(std::meta::remove_cv(std::meta::type_of(member))))
+            return false;
+
+    return true;
+}
+
 inline consteval bool is_default_type(std::meta::info type) {
     const auto context = std::meta::access_context::unchecked();
 
@@ -72,6 +88,13 @@ inline consteval bool is_default_type(std::meta::info type) {
     }
 
     return true;
+}
+
+inline consteval bool is_walkable_class(std::meta::info type) {
+    return (std::meta::is_class_type(type) || std::meta::is_union_type(type))
+        && std::meta::is_complete_type(type)
+        && is_default_type(type)
+        && !has_unreflectable_state(type);
 }
 
 }

@@ -65,11 +65,6 @@ inline consteval bool all_wrapped_types(std::meta::info type,
     return true;
 }
 
-inline consteval bool
-const_wrapped_is_synchronizable(std::meta::info wrapped) {
-    return is_synchronizable_type(std::meta::add_const(wrapped));
-}
-
 }
 
 template <detail::std_wrapper T>
@@ -83,7 +78,7 @@ struct is_unsafe_synchronizable<const T>
     : std::bool_constant<
           is_synchronizable_type(^^T)
           || detail::all_wrapped_types(
-              ^^T, detail::const_wrapped_is_synchronizable)> {};
+              ^^T, detail::const_type_is_synchronizable)> {};
 
 template <detail::std_wrapper T>
 struct is_unsafe_lifetime_aware<T>

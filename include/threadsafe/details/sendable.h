@@ -48,8 +48,6 @@ namespace detail {
 inline consteval bool diagnose_is_sendable(std::meta::info type) {
   using namespace std::meta;
 
-  const auto context = access_context::unchecked();
-
   if (const auto unqualified = remove_cv(type); unqualified != type)
     return is_sendable_type(unqualified);
 
@@ -59,27 +57,10 @@ inline consteval bool diagnose_is_sendable(std::meta::info type) {
   if (is_scalar_type(type) || is_synchronizable_type(type))
     return true;
 
-  if (!is_class_type(type) && !is_union_type(type))
+  if (!is_walkable_class(type))
     return false;
 
-  if (!is_complete_type(type))
-    return false;
-
-  if (!is_default_type(type))
-    return false;
-
-  if (has_unreflectable_state(type))
-    return false;
-
-  for (info base : bases_of(type, context))
-    if (!is_sendable_type(type_of(base)))
-      return false;
-
-  for (info member : nonstatic_data_members_of(type, context))
-    if (!is_sendable_type(remove_cv(type_of(member))))
-      return false;
-
-  return true;
+  return all_bases_and_members(type, is_sendable_type);
 }
 
 } // namespace detail
