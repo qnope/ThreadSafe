@@ -41,10 +41,6 @@ private:
 
 template <class T>
 class synchronized_value {
-    static_assert(sendable<T>,
-                  "the mutex serializes access, but the T still crosses thread "
-                  "boundaries — one thread at a time — so T must be sendable");
-
 public:
     static constexpr bool shared_readable = bool(is_synchronizable_v<const T>);
 
@@ -58,7 +54,12 @@ public:
     template <class... Args>
         requires std::constructible_from<T, Args...>
     explicit synchronized_value(Args&&... args)
-        : value_(std::forward<Args>(args)...) {}
+        : value_(std::forward<Args>(args)...) {
+        static_assert(sendable<T>,
+                      "the mutex serializes access, but the T still crosses "
+                      "thread boundaries — one thread at a time — so T must "
+                      "be sendable");
+    }
 
     synchronized_value(const synchronized_value&) = delete;
     synchronized_value& operator=(const synchronized_value&) = delete;
@@ -82,32 +83,11 @@ private:
 };
 
 template <class T>
-struct is_unsafe_synchronizable<synchronized_value<T>> {
-    static consteval TraitAnswer diagnose() {
-        return is_sendable_v<T>.prepend_path(detail::pointee_step);
-    }
-};
+struct is_unsafe_synchronizable<synchronized_value<T>>
+    : std::bool_constant<is_sendable_v<T>> {};
 
 template <class T>
-struct is_unsafe_lifetime_aware<synchronized_value<T>> {
-    static consteval TraitAnswer diagnose() {
-        return is_lifetime_aware_v<T>.prepend_path(detail::pointee_step);
-    }
-};
-
-template <class T, class Lock>
-struct is_unsafe_sendable<value_guard<T, Lock>> {
-    static consteval TraitAnswer diagnose() {
-        return "holds a lock owned by the thread that took it";
-    }
-};
-
-template <class T, class Lock>
-struct is_unsafe_lifetime_aware<value_guard<T, Lock>> {
-    static consteval TraitAnswer diagnose() {
-        return "points into the synchronized_value it guards instead of "
-               "keeping it alive";
-    }
-};
+struct is_unsafe_lifetime_aware<synchronized_value<T>>
+    : std::bool_constant<is_lifetime_aware_v<T>> {};
 
 }

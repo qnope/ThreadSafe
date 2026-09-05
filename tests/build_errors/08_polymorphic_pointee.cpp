@@ -8,14 +8,10 @@ struct Base {
 };
 
 template <>
-struct threadsafe::is_unsafe_sendable<Base> {
-    static consteval threadsafe::TraitAnswer diagnose() { return {}; }
-};
+struct threadsafe::is_unsafe_sendable<Base> : std::true_type {};
 
 template <>
-struct threadsafe::is_unsafe_lifetime_aware<Base> {
-    static consteval threadsafe::TraitAnswer diagnose() { return {}; }
-};
+struct threadsafe::is_unsafe_lifetime_aware<Base> : std::true_type {};
 
 int main() {
     threadsafe::asynchronous_task_launcher launcher;

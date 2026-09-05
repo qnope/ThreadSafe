@@ -56,43 +56,38 @@ wrapped_types_of(std::meta::info type) {
     return wrapped;
 }
 
-inline consteval TraitAnswer
-all_wrapped_types(std::meta::info type,
-                  TraitAnswer (*question)(std::meta::info)) {
+inline consteval bool all_wrapped_types(std::meta::info type,
+                                        bool (*question)(std::meta::info)) {
     for (std::meta::info wrapped : wrapped_types_of(type))
-        if (const auto answer = question(wrapped); !answer)
-            return answer.prepend_path(path_step_of_type(wrapped));
+        if (!question(wrapped))
+            return false;
 
-    return {};
+    return true;
+}
+
+inline consteval bool
+const_wrapped_is_synchronizable(std::meta::info wrapped) {
+    return is_synchronizable_type(std::meta::add_const(wrapped));
 }
 
 }
 
 template <detail::std_wrapper T>
-struct is_unsafe_sendable<T> {
-    static consteval TraitAnswer diagnose() {
-        if (is_synchronizable_type(^^T))
-            return {};
-        return detail::all_wrapped_types(^^T, is_sendable_type);
-    }
+struct is_unsafe_sendable<T>
+    : std::bool_constant<is_synchronizable_type(^^T)
+                         || detail::all_wrapped_types(^^T, is_sendable_type)> {
 };
 
 template <detail::std_wrapper T>
-struct is_unsafe_synchronizable<const T> {
-    static consteval TraitAnswer diagnose() {
-        if (is_synchronizable_type(^^T))
-            return {};
-        return detail::all_wrapped_types(^^T, [](std::meta::info wrapped) consteval {
-            return is_synchronizable_type(std::meta::add_const(wrapped));
-        });
-    }
-};
+struct is_unsafe_synchronizable<const T>
+    : std::bool_constant<
+          is_synchronizable_type(^^T)
+          || detail::all_wrapped_types(
+              ^^T, detail::const_wrapped_is_synchronizable)> {};
 
 template <detail::std_wrapper T>
-struct is_unsafe_lifetime_aware<T> {
-    static consteval TraitAnswer diagnose() {
-        return detail::all_wrapped_types(^^T, is_lifetime_aware_type);
-    }
-};
+struct is_unsafe_lifetime_aware<T>
+    : std::bool_constant<detail::all_wrapped_types(^^T,
+                                                   is_lifetime_aware_type)> {};
 
 }

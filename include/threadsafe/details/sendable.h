@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstddef>
 #include <meta>
 #include <type_traits>
 
@@ -10,77 +9,35 @@
 namespace threadsafe {
 
 template <class T>
-struct is_unsafe_sendable {};
+struct is_unsafe_sendable : std::false_type {};
 
 template <class T>
-constexpr TraitAnswer is_unsafe_sendable_v
-    = detail::unsafe_answer<is_unsafe_sendable, T>();
+constexpr bool is_unsafe_sendable_v = is_unsafe_sendable<T>::value;
 
-inline consteval TraitAnswer is_unsafe_sendable_type(std::meta::info type) {
+inline consteval bool is_unsafe_sendable_type(std::meta::info type) {
     return detail::trait_value(^^is_unsafe_sendable_v, type);
 }
 
 namespace detail {
-consteval TraitAnswer diagnose_is_sendable(std::meta::info type);
+consteval bool diagnose_is_sendable(std::meta::info type);
 }
 
 template <class T>
-struct is_sendable {
-    static consteval TraitAnswer diagnose() {
-        return detail::diagnose_is_sendable(^^T);
-    }
-};
+struct is_sendable : std::bool_constant<detail::diagnose_is_sendable(^^T)> {};
 
 template <class T>
-constexpr TraitAnswer is_sendable_v = is_sendable<T>::diagnose().with_trait("sendable");
+constexpr bool is_sendable_v = is_sendable<T>::value;
 
 template <class T>
-concept sendable = bool(is_sendable_v<T>);
+concept sendable = is_sendable_v<T>;
 
-inline consteval TraitAnswer is_sendable_type(std::meta::info type) {
+inline consteval bool is_sendable_type(std::meta::info type) {
     return detail::trait_value(^^is_sendable_v, type);
 }
 
-template <class T>
-struct is_unsafe_sendable<T&> {
-    static consteval TraitAnswer diagnose() {
-        return is_synchronizable_v<std::remove_cv_t<T>>.prepend_path(
-            detail::referent_step);
-    }
-};
-
-template <class T>
-struct is_unsafe_sendable<T&&> {
-    static consteval TraitAnswer diagnose() { return is_unsafe_sendable_v<T&>; }
-};
-
-template <class T>
-struct is_unsafe_sendable<T*> {
-    static consteval TraitAnswer diagnose() {
-        return is_synchronizable_v<std::remove_cv_t<T>>.prepend_path(
-            detail::pointee_step);
-    }
-};
-
-template <class T, std::size_t N>
-struct is_unsafe_sendable<T[N]> {
-    static consteval TraitAnswer diagnose() {
-        return is_sendable_v<std::remove_cv_t<T>>.prepend_path(
-            detail::element_step);
-    }
-};
-
-template <class T>
-struct is_unsafe_sendable<T[]> {
-    static consteval TraitAnswer diagnose() {
-        return is_sendable_v<std::remove_cv_t<T>>.prepend_path(
-            detail::element_step);
-    }
-};
-
 namespace detail {
 
-inline consteval TraitAnswer diagnose_is_sendable(std::meta::info type) {
+inline consteval bool diagnose_is_sendable(std::meta::info type) {
     using namespace std::meta;
 
     const auto context = access_context::unchecked();
@@ -88,42 +45,42 @@ inline consteval TraitAnswer diagnose_is_sendable(std::meta::info type) {
     if (const auto unqualified = remove_cv(type); unqualified != type)
         return is_sendable_type(unqualified);
 
-    if (const auto vouched = is_unsafe_sendable_type(type); vouched.answered)
-        return vouched;
+    if (is_unsafe_sendable_type(type))
+        return true;
+
+    if (is_reference_type(type))
+        return is_synchronizable_type(remove_cv(remove_reference(type)));
+
+    if (is_pointer_type(type))
+        return is_synchronizable_type(remove_cv(remove_pointer(type)));
+
+    if (is_array_type(type))
+        return is_sendable_type(remove_cv(remove_extent(type)));
 
     if (is_scalar_type(type) || is_synchronizable_type(type))
-        return {};
-
-    if (is_void_type(type))
-        return "holds no value to send";
+        return true;
 
     if (!is_class_type(type) && !is_union_type(type))
-        return "is not a scalar, class or union type — is_sendable<T> "
-                  "supports no others";
+        return false;
 
     if (!is_complete_type(type))
-        return "is incomplete — is_sendable<T> needs a complete type; "
-                  "specialize is_unsafe_sendable for a type holding a pointer "
-                  "to an incomplete type (the pimpl idiom)";
+        return false;
 
-    if (const auto answer = is_default_type(type); !answer)
-        return answer;
+    if (!is_default_type(type))
+        return false;
 
     if (has_unreflectable_state(type))
-        return "holds state reflection cannot see (a closure type with "
-                  "captures); specialize is_unsafe_sendable to state the "
-                  "intent";
+        return false;
 
     for (info base : bases_of(type, context))
-        if (const auto answer = is_sendable_type(type_of(base)); !answer)
-            return answer.prepend_path(path_step_of_base(type_of(base)));
+        if (!is_sendable_type(type_of(base)))
+            return false;
 
     for (info member : nonstatic_data_members_of(type, context))
-        if (const auto answer = is_sendable_type(remove_cv(type_of(member)));
-            !answer)
-            return answer.prepend_path(path_step_of_member(member));
+        if (!is_sendable_type(remove_cv(type_of(member))))
+            return false;
 
-    return {};
+    return true;
 }
 
 }

@@ -32,11 +32,7 @@ struct Holder {
 }
 
 template <>
-struct threadsafe::is_unsafe_synchronizable<Opaque> {
-    static consteval threadsafe::TraitAnswer diagnose() {
-        return {};
-    }
-};
+struct threadsafe::is_unsafe_synchronizable<Opaque> : std::true_type {};
 
 static_assert(!is_sendable_v<int*>);
 static_assert(is_sendable_v<Holder>,

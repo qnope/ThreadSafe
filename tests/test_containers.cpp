@@ -9,11 +9,12 @@ struct UserCopyCtor {
     UserCopyCtor(const UserCopyCtor&);
 };
 
+template <class T>
 struct BadAlloc {
     UserCopyCtor state;
-    using value_type = int;
-    int* allocate(std::size_t);
-    void deallocate(int*, std::size_t);
+    using value_type = T;
+    T* allocate(std::size_t);
+    void deallocate(T*, std::size_t);
 };
 
 struct BadHash {
@@ -48,18 +49,10 @@ struct MoveOnlyStrings {
 }
 
 template <>
-struct threadsafe::is_unsafe_synchronizable<std::vector<VouchedElement>> {
-    static consteval threadsafe::TraitAnswer diagnose() {
-        return {};
-    }
-};
+struct threadsafe::is_unsafe_synchronizable<std::vector<VouchedElement>> : std::true_type {};
 
 template <>
-struct threadsafe::is_unsafe_sendable<std::vector<OptedOut>> {
-    static consteval threadsafe::TraitAnswer diagnose() {
-        return "opted out by this test";
-    }
-};
+struct threadsafe::is_unsafe_sendable<std::vector<OptedOut>> : std::false_type {};
 
 using threadsafe::is_sendable_v;
 using threadsafe::is_synchronizable_v;
@@ -108,7 +101,7 @@ static_assert(!is_sendable_v<std::vector<int*>>,
 static_assert(!is_sendable_v<std::map<int, UserCopyCtor>>,
               "is_sendable — a non-sendable mapped type makes the map non-sendable");
 
-static_assert(!is_sendable_v<std::vector<int, BadAlloc>>,
+static_assert(!is_sendable_v<std::vector<int, BadAlloc<int>>>,
               "is_sendable — the allocator is stored, so it must be sendable too");
 static_assert(!is_sendable_v<std::set<int, BadCompare>>,
               "is_sendable — the comparator is stored, so it must be sendable too");

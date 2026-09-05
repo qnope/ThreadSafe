@@ -41,20 +41,11 @@ private:
 };
 
 template <class T>
-struct is_unsafe_sendable<copy_on_write<T>> {
-    static consteval TraitAnswer diagnose() {
-        if (const auto send_answer = is_sendable_v<T>; !send_answer)
-            return send_answer.prepend_path(detail::pointee_step);
-
-        return is_synchronizable_v<const T>.prepend_path(detail::pointee_step);
-    }
-};
+struct is_unsafe_sendable<copy_on_write<T>>
+    : std::bool_constant<is_sendable_v<T> && is_synchronizable_v<const T>> {};
 
 template <class T>
-struct is_unsafe_lifetime_aware<copy_on_write<T>> {
-    static consteval TraitAnswer diagnose() {
-        return is_lifetime_aware_v<T>.prepend_path(detail::pointee_step);
-    }
-};
+struct is_unsafe_lifetime_aware<copy_on_write<T>>
+    : std::bool_constant<is_lifetime_aware_v<T>> {};
 
 }

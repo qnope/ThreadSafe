@@ -19,11 +19,7 @@ using threadsafe::launchable_scoped_task;
 using threadsafe::launchable_task;
 
 template <>
-struct threadsafe::is_unsafe_synchronizable<SyncCounter> {
-    static consteval threadsafe::TraitAnswer diagnose() {
-        return {};
-    }
-};
+struct threadsafe::is_unsafe_synchronizable<SyncCounter> : std::true_type {};
 
 static_assert(launchable_task<decltype([] {})>,
               "launch_task — a captureless lambda with no args is accepted");

@@ -1,10 +1,7 @@
 #pragma once
 
 #include <concepts>
-#include <meta>
 #include <stop_token>
-#include <string>
-#include <string_view>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -17,39 +14,29 @@ namespace threadsafe {
 namespace detail {
 
 template <class T>
-consteval TraitAnswer diagnose_scoped_task_participant() {
-    if (!std::move_constructible<T>)
-        return "cannot be moved, and the launcher owns what it is handed; "
-               "share it with std::ref instead";
-
-    return is_sendable_v<T>;
+consteval bool diagnose_scoped_task_participant() {
+    return std::move_constructible<T> && is_sendable_v<T>;
 }
 
 template <class T>
-consteval TraitAnswer diagnose_task_participant() {
-    if (const auto answer = diagnose_scoped_task_participant<T>(); !answer)
-        return answer;
-
-    return is_lifetime_aware_v<T>;
+consteval bool diagnose_task_participant() {
+    return diagnose_scoped_task_participant<T>() && is_lifetime_aware_v<T>;
 }
 
 }
 
 template <class T>
-constexpr TraitAnswer is_scoped_task_participant_v
-    = detail::diagnose_scoped_task_participant<T>().with_trait(
-        "able to take part in a scoped task");
+constexpr bool is_scoped_task_participant_v
+    = detail::diagnose_scoped_task_participant<T>();
 
 template <class T>
-concept scoped_task_participant = bool(is_scoped_task_participant_v<T>);
+concept scoped_task_participant = is_scoped_task_participant_v<T>;
 
 template <class T>
-constexpr TraitAnswer is_task_participant_v
-    = detail::diagnose_task_participant<T>().with_trait(
-        "able to take part in a task");
+constexpr bool is_task_participant_v = detail::diagnose_task_participant<T>();
 
 template <class T>
-concept task_participant = bool(is_task_participant_v<T>);
+concept task_participant = is_task_participant_v<T>;
 
 template <class F, class... Args>
 concept launchable_task = task_participant<F> && (task_participant<Args> && ...);
@@ -57,27 +44,6 @@ concept launchable_task = task_participant<F> && (task_participant<Args> && ...)
 template <class F, class... Args>
 concept launchable_scoped_task = scoped_task_participant<F>
                               && (scoped_task_participant<Args> && ...);
-
-namespace detail {
-
-inline consteval std::string_view explain(TraitAnswer answer,
-                                          std::meta::info type) {
-    if (answer)
-        return {};
-
-    const auto rooted = answer.prepend_path(path_step_of_type(type));
-
-    return std::define_static_string(std::string(rooted.full_path())
-                                     + " is not " + rooted.trait_name
-                                     + " because it " + rooted.error_message);
-}
-
-template <class T, const TraitAnswer& answer>
-consteval void assert_participant() {
-    static_assert(bool(answer), explain(answer, ^^T));
-}
-
-}
 
 class asynchronous_task_launcher {
     static_assert(task_participant<std::stop_token>,
@@ -93,8 +59,12 @@ public:
 
     template <typename F, typename... Args>
     void launch_task(F, Args...) {
-        detail::assert_participant<F, is_task_participant_v<F>>();
-        (detail::assert_participant<Args, is_task_participant_v<Args>>(), ...);
+        static_assert(task_participant<F>,
+                      "the callable must be movable, sendable and "
+                      "lifetime-aware");
+        static_assert((task_participant<Args> && ...),
+                      "every argument must be movable, sendable and "
+                      "lifetime-aware");
     }
 
     template <typename F, typename... Args>
@@ -106,10 +76,10 @@ public:
 
     template <typename F, typename... Args>
     void launch_scoped_task(F, Args...) {
-        detail::assert_participant<F, is_scoped_task_participant_v<F>>();
-        (detail::assert_participant<Args,
-                                    is_scoped_task_participant_v<Args>>(),
-         ...);
+        static_assert(scoped_task_participant<F>,
+                      "the callable must be movable and sendable");
+        static_assert((scoped_task_participant<Args> && ...),
+                      "every argument must be movable and sendable");
     }
 
 private:

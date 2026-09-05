@@ -10,15 +10,10 @@ namespace threadsafe {
 
 template <class F>
     requires std::is_function_v<F>
-struct is_unsafe_synchronizable<F> {
-    static consteval TraitAnswer diagnose() { return {}; }
-};
+struct is_unsafe_synchronizable<F> : std::true_type {};
 
 template <class T>
-struct is_unsafe_synchronizable<std::atomic<T>> {
-    static consteval TraitAnswer diagnose() {
-        return is_sendable_v<T>.prepend_path(detail::pointee_step);
-    }
-};
+struct is_unsafe_synchronizable<std::atomic<T>>
+    : std::bool_constant<is_sendable_v<T>> {};
 
 }

@@ -72,11 +72,7 @@ using CapturesReference = decltype(borrow(std::declval<std::string&>()));
 }
 
 template <>
-struct threadsafe::is_unsafe_synchronizable<SyncType> {
-    static consteval threadsafe::TraitAnswer diagnose() {
-        return {};
-    }
-};
+struct threadsafe::is_unsafe_synchronizable<SyncType> : std::true_type {};
 
 using threadsafe::is_lifetime_aware_v;
 using threadsafe::is_sendable_v;

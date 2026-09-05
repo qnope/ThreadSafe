@@ -9,151 +9,101 @@
 namespace threadsafe {
 
 template <class T>
-struct is_unsafe_synchronizable {};
+struct is_unsafe_synchronizable : std::false_type {};
 
 template <class T>
-constexpr TraitAnswer is_unsafe_synchronizable_v
-    = detail::unsafe_answer<is_unsafe_synchronizable, T>();
+constexpr bool is_unsafe_synchronizable_v = is_unsafe_synchronizable<T>::value;
 
-inline consteval TraitAnswer
+inline consteval bool
 is_unsafe_synchronizable_type(std::meta::info type) {
     return detail::trait_value(^^is_unsafe_synchronizable_v, type);
 }
 
 namespace detail {
-consteval TraitAnswer diagnose_is_const_synchronizable(std::meta::info type);
+consteval bool diagnose_is_const_synchronizable(std::meta::info type);
 }
 
 template <class T>
-struct is_synchronizable {
-    static consteval TraitAnswer diagnose() {
-        if (const auto vouched = is_unsafe_synchronizable_v<T>; vouched.answered)
-            return vouched;
-
-        return "carries no synchronization of its own: "
-               "is_unsafe_synchronizable<T> is opt-in, so specialize it to "
-               "vouch for a type that synchronizes itself";
-    }
-};
+struct is_synchronizable : std::bool_constant<is_unsafe_synchronizable_v<T>> {};
 
 template <class T>
-constexpr TraitAnswer is_synchronizable_v
-    = is_synchronizable<T>::diagnose().with_trait("synchronizable");
+constexpr bool is_synchronizable_v = is_synchronizable<T>::value;
 
-inline consteval TraitAnswer is_synchronizable_type(std::meta::info type) {
+inline consteval bool is_synchronizable_type(std::meta::info type) {
     return detail::trait_value(^^is_synchronizable_v, type);
 }
 
 template <class T>
-struct is_unsafe_synchronizable<const T> {
-    static consteval TraitAnswer diagnose() {
-        return detail::diagnose_is_const_synchronizable(^^T);
-    }
-};
+struct is_unsafe_synchronizable<const T>
+    : std::bool_constant<detail::diagnose_is_const_synchronizable(^^T)> {};
 
 template <class T, std::size_t N>
-struct is_unsafe_synchronizable<T[N]> {
-    static consteval TraitAnswer diagnose() {
-        return is_unsafe_synchronizable_v<T[]>;
-    }
-};
+struct is_unsafe_synchronizable<T[N]>
+    : std::bool_constant<is_synchronizable_v<T>> {};
 
 template <class T>
-struct is_unsafe_synchronizable<T[]> {
-    static consteval TraitAnswer diagnose() {
-        return is_synchronizable_v<T>.prepend_path(detail::element_step);
-    }
-};
+struct is_unsafe_synchronizable<T[]>
+    : std::bool_constant<is_synchronizable_v<T>> {};
 
 template <class T, std::size_t N>
-struct is_unsafe_synchronizable<const T[N]> {
-    static consteval TraitAnswer diagnose() {
-        return is_unsafe_synchronizable_v<const T[]>;
-    }
-};
+struct is_unsafe_synchronizable<const T[N]>
+    : std::bool_constant<is_synchronizable_v<const T>> {};
 
 template <class T>
-struct is_unsafe_synchronizable<const T[]> {
-    static consteval TraitAnswer diagnose() {
-        return is_synchronizable_v<const T>.prepend_path(detail::element_step);
-    }
-};
+struct is_unsafe_synchronizable<const T[]>
+    : std::bool_constant<is_synchronizable_v<const T>> {};
 
 namespace detail {
 
-inline consteval TraitAnswer
+inline consteval bool
 diagnose_is_const_synchronizable(std::meta::info type) {
     using namespace std::meta;
 
     const auto context = access_context::unchecked();
     type = remove_cv(type);
 
-    if (const auto vouched = is_unsafe_synchronizable_type(type);
-        vouched.answered)
-        return vouched;
+    if (is_unsafe_synchronizable_type(type))
+        return true;
 
-    if (is_pointer_type(type)) {
-        if (!is_synchronizable_type(remove_cv(remove_pointer(type))))
-            return "is a pointer: the const stops at it — the pointee may "
-                      "be written through another alias, so the pointee must "
-                      "be synchronizable itself";
-        return {};
-    }
+    if (is_pointer_type(type))
+        return is_synchronizable_type(remove_cv(remove_pointer(type)));
 
     if (is_scalar_type(type))
-        return {};
-
-    if (is_void_type(type))
-        return "holds no value to read";
+        return true;
 
     if (!is_class_type(type) && !is_union_type(type))
-        return "is not a scalar, class or union type — "
-                  "is_synchronizable<const T> supports no others";
+        return false;
 
     if (!is_complete_type(type))
-        return "is incomplete — is_synchronizable<const T> needs a complete "
-                  "type; specialize is_unsafe_synchronizable for a type "
-                  "holding a pointer to an incomplete type (the pimpl idiom)";
+        return false;
 
-    if (const auto answer = is_default_type(type); !answer)
-        return answer;
+    if (!is_default_type(type))
+        return false;
 
     if (has_unreflectable_state(type))
-        return "holds state reflection cannot see (a closure type with "
-                  "captures); specialize is_unsafe_synchronizable to state "
-                  "the intent";
+        return false;
 
     for (info base : bases_of(type, context))
-        if (const auto answer = is_synchronizable_type(add_const(type_of(base)));
-            !answer)
-            return answer.prepend_path(path_step_of_base(type_of(base)));
+        if (!is_synchronizable_type(add_const(type_of(base))))
+            return false;
 
     for (info member : nonstatic_data_members_of(type, context)) {
         const auto member_type = type_of(member);
-        const auto member_step = path_step_of_member(member);
 
         if (is_mutable_member(member)) {
             if (!is_synchronizable_type(remove_cv(member_type)))
-                return TraitAnswer("is a mutable member written through a "
-                                   "const reference: its type must be fully "
-                                   "synchronizable")
-                    .prepend_path(member_step);
+                return false;
         }
         else if (is_reference_type(member_type)) {
             if (!is_synchronizable_type(remove_cvref(member_type)))
-                return TraitAnswer("is a reference member that stops the "
-                                   "const: its referent must be "
-                                   "synchronizable itself")
-                    .prepend_path(member_step);
+                return false;
         }
-        else if (const auto answer
-                 = is_synchronizable_type(add_const(member_type));
-                 !answer) {
-            return answer.prepend_path(member_step);
+        else if (!is_synchronizable_type(add_const(member_type))) {
+            return false;
         }
     }
 
-    return {};
+    return true;
 }
 
 }

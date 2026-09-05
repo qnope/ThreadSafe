@@ -7,9 +7,7 @@ struct Counter {
 };
 
 template <>
-struct threadsafe::is_unsafe_synchronizable<Counter> {
-    static consteval threadsafe::TraitAnswer diagnose() { return {}; }
-};
+struct threadsafe::is_unsafe_synchronizable<Counter> : std::true_type {};
 
 int main() {
     Counter counter;
