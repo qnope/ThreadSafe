@@ -19,27 +19,6 @@ template <class T> consteval bool assert_queryable_type() {
   return true;
 }
 
-template <typename T> struct is_smart_pointer : std::false_type {};
-
-template <typename T>
-struct is_smart_pointer<std::shared_ptr<T>> : std::true_type {};
-
-template <typename T>
-struct is_smart_pointer<std::weak_ptr<T>> : std::true_type {};
-
-template <typename T>
-struct is_smart_pointer<std::unique_ptr<T>> : std::true_type {};
-
-template <typename T>
-constexpr bool is_smart_pointer_v = is_smart_pointer<T>::value;
-
-template <class T>
-concept smart_pointer = is_smart_pointer<T>::value;
-
-inline consteval bool is_smart_pointer_type(std::meta::info info) {
-  return trait_value(^^is_smart_pointer_v, info);
-}
-
 template <class T> consteval bool compute_dynamic_type_is_known() {
   return !std::is_polymorphic_v<T> || std::is_final_v<T>;
 }

@@ -12,27 +12,63 @@ namespace threadsafe {
 
 namespace detail {
 
+template <class T> consteval bool pointee_is_lifetime_aware() {
+  const auto template_arguments = wrapped_types_of(^^T);
+
+  return std::ranges::all_of(template_arguments, [](const auto argument) {
+    return is_lifetime_aware_type(argument) &&
+           (!is_polymorphic_type(argument) || is_final_type(argument));
+  });
+}
+
 template <class Pointee>
 inline consteval bool unique_ptr_answer(bool pointee_answer,
                                         bool deleter_answer) {
-    return pointee_answer && deleter_answer && dynamic_type_is_known<Pointee>;
+  return pointee_answer && deleter_answer && dynamic_type_is_known<Pointee>;
 }
 
+} // namespace detail
+
+template <typename T> struct is_smart_pointer : std::false_type {};
+
+template <typename T>
+struct is_smart_pointer<std::shared_ptr<T>> : std::true_type {};
+
+template <typename T>
+struct is_smart_pointer<std::weak_ptr<T>> : std::true_type {};
+
+template <typename T>
+struct is_smart_pointer<std::unique_ptr<T>> : std::true_type {};
+
+template <typename T>
+constexpr bool is_smart_pointer_v = is_smart_pointer<T>::value;
+
+template <class T>
+concept smart_pointer = is_smart_pointer<T>::value;
+
+inline consteval bool is_smart_pointer_type(std::meta::info info) {
+  return detail::trait_value(^^is_smart_pointer_v, info);
 }
+
+template <smart_pointer T>
+struct is_unsafe_lifetime_aware<T>
+    : std::bool_constant<detail::pointee_is_lifetime_aware<T>()> {};
 
 template <class T>
 struct is_unsafe_sendable<std::default_delete<T>> : std::true_type {};
 
-template <class T, class D>
-struct is_unsafe_sendable<std::unique_ptr<T, D>>
-    : std::bool_constant<detail::unique_ptr_answer<std::remove_all_extents_t<T>>(
-          is_sendable_v<std::remove_all_extents_t<T>>, is_sendable_v<D>)> {};
+template <class T>
+struct is_unsafe_lifetime_aware<std::default_delete<T>> : std::true_type {};
+
+template <class T>
+struct is_unsafe_synchronizable<std::default_delete<T>> : std::true_type {};
 
 template <class T, class D>
-struct is_unsafe_lifetime_aware<std::unique_ptr<T, D>>
-    : std::bool_constant<detail::unique_ptr_answer<std::remove_all_extents_t<T>>(
-          is_lifetime_aware_v<std::remove_all_extents_t<T>>,
-          is_lifetime_aware_v<D>)> {};
+struct is_unsafe_sendable<std::unique_ptr<T, D>>
+    : std::bool_constant<
+          detail::unique_ptr_answer<std::remove_all_extents_t<T>>(
+              is_sendable_v<std::remove_all_extents_t<T>>, is_sendable_v<D>)> {
+};
 
 template <class T>
 struct is_unsafe_sendable<std::shared_ptr<T>>
@@ -50,15 +86,12 @@ template <class T>
 struct is_unsafe_sendable<std::reference_wrapper<T>>
     : std::bool_constant<is_synchronizable_v<std::remove_cv_t<T>>> {};
 
-template <class T>
-struct is_unsafe_synchronizable<const std::default_delete<T>>
-    : std::true_type {};
-
 template <class T, class D>
 struct is_unsafe_synchronizable<const std::unique_ptr<T, D>>
-    : std::bool_constant<detail::unique_ptr_answer<std::remove_all_extents_t<T>>(
-          is_synchronizable_v<std::remove_all_extents_t<T>>,
-          is_synchronizable_v<const D>)> {};
+    : std::bool_constant<
+          detail::unique_ptr_answer<std::remove_all_extents_t<T>>(
+              is_synchronizable_v<std::remove_all_extents_t<T>>,
+              is_synchronizable_v<const D>)> {};
 
 template <class T>
 struct is_unsafe_synchronizable<const std::shared_ptr<T>>
@@ -76,4 +109,4 @@ template <class T>
 struct is_unsafe_synchronizable<const std::reference_wrapper<T>>
     : std::bool_constant<is_synchronizable_v<std::remove_cv_t<T>>> {};
 
-}
+} // namespace threadsafe

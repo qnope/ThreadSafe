@@ -70,7 +70,7 @@ inline consteval bool diagnose_is_synchronizable(std::meta::info type) {
     const auto member_type = type_of(member);
 
     if (is_mutable_member(member)) {
-      if (!is_synchronizable_type(remove_cv(member_type)))
+      if (!is_synchronizable_type(member_type))
         return false;
     } else if (is_reference_type(member_type)) {
       if (!is_synchronizable_type(remove_cvref(member_type)))

@@ -40,19 +40,6 @@ inline consteval bool is_lifetime_aware_type(std::meta::info type) {
 
 namespace detail {
 
-template <class T> consteval bool pointee_is_lifetime_aware() {
-  using pointee = typename T::element_type;
-  return is_lifetime_aware_v<pointee> && dynamic_type_is_known<pointee>;
-}
-
-} // namespace detail
-
-template <detail::smart_pointer T>
-struct is_lifetime_aware<T>
-    : std::bool_constant<detail::pointee_is_lifetime_aware<T>()> {};
-
-namespace detail {
-
 inline consteval bool diagnose_is_lifetime_aware(std::meta::info type) {
   if (const auto unqualified = remove_cv(type); unqualified != type)
     return is_lifetime_aware_type(unqualified);
