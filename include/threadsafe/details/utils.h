@@ -19,12 +19,13 @@ template <class T> consteval bool assert_queryable_type() {
   return true;
 }
 
-template <class T> consteval bool compute_dynamic_type_is_known() {
-  return !std::is_polymorphic_v<T> || std::is_final_v<T>;
+consteval bool is_dynamic_type_known(std::meta::info type) {
+  return !is_polymorphic_type(type) || is_final(type);
 }
 
 template <class T>
-constexpr bool dynamic_type_is_known = compute_dynamic_type_is_known<T>();
+constexpr bool dynamic_type_is_known =
+    !std::is_polymorphic_v<T> || std::is_final_v<T>;
 
 inline consteval bool has_unreflectable_state(std::meta::info type) {
   const auto context = std::meta::access_context::unchecked();

@@ -44,8 +44,13 @@ inline consteval bool diagnose_is_sendable(std::meta::info type) {
   if (is_unsafe_sendable_type(type))
     return true;
 
-  if (is_reference_type(type) || is_pointer_type(type))
+  if (is_lvalue_reference_type(type))
     return is_synchronizable_type(remove_reference(remove_pointer(type)));
+
+  if (is_pointer_type(type))
+    return is_sendable_type(add_lvalue_reference(remove_pointer(type)));
+
+  type = remove_reference(type);
 
   if (is_array_type(type))
     return is_sendable_type(remove_all_extents(type));
