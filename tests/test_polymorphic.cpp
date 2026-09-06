@@ -53,8 +53,9 @@ static_assert(is_sendable_v<PolyFinal> && is_synchronizable_v<const PolyFinal>
 static_assert(!is_sendable_v<const PolyBase&>,
               "is_sendable — a const reference may bind to a derived object "
               "with a mutable member a virtual const function mutates");
-static_assert(is_sendable_v<const PolyFinal&>,
-              "is_sendable — a final type has no unknown dynamic type");
+static_assert(!is_sendable_v<const PolyFinal&>,
+              "is_sendable — final settles the dynamic type, but the const is "
+              "only a view: another alias may still mutate the referent");
 static_assert(!is_sendable_v<VouchedPolyBase&>,
               "is_sendable — a vouch names a type; it does not cover the "
               "unknown derived objects a reference may bind to");
@@ -77,8 +78,9 @@ static_assert(is_sendable_v<PolyFinal&&>,
 static_assert(!is_sendable_v<const PolyBase*>,
               "is_sendable — a pointer to a polymorphic base may point at an "
               "unknown derived");
-static_assert(is_sendable_v<const PolyFinal*>,
-              "is_sendable — a final pointee has no unknown dynamic type");
+static_assert(!is_sendable_v<const PolyFinal*>,
+              "is_sendable — final settles the dynamic type, but the const is "
+              "only a view: another alias may still mutate the pointee");
 static_assert(!is_synchronizable_v<VouchedPolyBase* const>,
               "is_synchronizable — the const-read walk may not trust a pointee "
               "whose dynamic type is unknown, vouched or not");

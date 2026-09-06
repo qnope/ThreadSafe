@@ -44,7 +44,7 @@ inline consteval bool diagnose_is_synchronizable(std::meta::info type) {
   if (is_unsafe_synchronizable_type(type))
     return true;
 
-  if (is_function_type(remove_pointer(type)))
+  if (is_function_type(type))
     return true;
 
   if (is_array_type(type))
@@ -53,9 +53,12 @@ inline consteval bool diagnose_is_synchronizable(std::meta::info type) {
   if (!is_const(type))
     return false;
 
-  if (is_pointer_type(type) || is_lvalue_reference_type(type))
-    return pointee_answer(remove_cv(remove_pointer(type)),
-                          is_synchronizable_type);
+  if (is_pointer_type(type) || is_lvalue_reference_type(type)) {
+    const auto pointee = remove_cv(remove_pointer(type));
+    if (is_function_type(pointee))
+      return true;
+    return pointee_answer(pointee, is_synchronizable_type);
+  }
 
   if (is_scalar_type(type))
     return true;

@@ -151,6 +151,9 @@ static_assert(is_sendable_v<int PlainAggregate::*>,
               "is_sendable — member pointers are sendable");
 static_assert(!is_sendable_v<int *>,
               "is_sendable — sending an object pointer shares the referent");
+static_assert(!is_sendable_v<const int *> && !is_sendable_v<const int &>,
+              "is_sendable — const behind an indirection is never trusted: "
+              "another non-const alias may mutate the referent");
 static_assert(is_sendable_v<SyncType *>,
               "is_sendable — a pointer to a synchronizable type is sendable");
 static_assert(is_sendable_v<std::atomic<int> (*)[4]>,

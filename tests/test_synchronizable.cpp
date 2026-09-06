@@ -122,6 +122,9 @@ static_assert(is_synchronizable_v<std::atomic<int>* const>
 static_assert(is_synchronizable_v<const HoldsFnPtr>,
               "is_synchronizable — a function pointee is code, and code is "
               "immutable");
+static_assert(!is_synchronizable_v<void (*)()> && is_synchronizable_v<void (*const)()>,
+              "is_synchronizable — the pointee is immutable code, but the "
+              "pointer itself is a mutable scalar: only const rescues it");
 static_assert(!is_synchronizable_v<const HoldsRef> && !is_synchronizable_v<const HoldsConstRef>,
               "is_synchronizable — the const does not travel through a "
               "reference member: the referent may be aliased non-const "
