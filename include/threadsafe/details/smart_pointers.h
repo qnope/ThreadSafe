@@ -16,13 +16,13 @@ template <class T> consteval bool pointee_is_lifetime_aware() {
   const auto template_arguments = wrapped_types_of(^^T);
 
   return std::ranges::all_of(template_arguments, [](const auto argument) {
-    return is_lifetime_aware_type(argument) && is_dynamic_type_known(argument);
+    return pointee_answer(argument, is_lifetime_aware_type);
   });
 }
 
-inline consteval bool unique_ptr_answer(bool pointee_answer,
-                                        bool deleter_answer) {
-  return pointee_answer && deleter_answer;
+template <class T> consteval bool pointee_is_synchronizable() {
+  return pointee_answer(^^std::remove_cv_t<std::remove_all_extents_t<T>>,
+                        is_synchronizable_type);
 }
 
 } // namespace detail
@@ -63,49 +63,36 @@ struct is_unsafe_synchronizable<std::default_delete<T>> : std::true_type {};
 
 template <class T, class D>
 struct is_unsafe_sendable<std::unique_ptr<T, D>>
-    : std::bool_constant<detail::unique_ptr_answer(is_sendable_v<T>,
-                                                   is_sendable_v<D>) &&
-                         detail::is_dynamic_type_known(^^T)> {};
+    : std::bool_constant<detail::pointee_answer(^^T, is_sendable_type) &&
+                         is_sendable_v<D>> {};
 
 template <class T>
 struct is_unsafe_sendable<std::shared_ptr<T>>
-    : std::bool_constant<
-          is_synchronizable_v<std::remove_cv_t<std::remove_all_extents_t<T>>> &&
-          detail::is_dynamic_type_known(^^T)> {};
+    : std::bool_constant<detail::pointee_is_synchronizable<T>()> {};
 
 template <class T>
 struct is_unsafe_sendable<std::weak_ptr<T>>
-    : std::bool_constant<
-          is_synchronizable_v<std::remove_cv_t<std::remove_all_extents_t<T>>> &&
-          detail::is_dynamic_type_known(^^T)> {};
+    : std::bool_constant<detail::pointee_is_synchronizable<T>()> {};
 
 template <class T>
 struct is_unsafe_sendable<std::reference_wrapper<T>>
-    : std::bool_constant<is_synchronizable_v<std::remove_cv_t<T>> &&
-                         detail::is_dynamic_type_known(^^T)> {};
+    : std::bool_constant<detail::pointee_is_synchronizable<T>()> {};
 
 template <class T, class D>
 struct is_unsafe_synchronizable<const std::unique_ptr<T, D>>
-    : std::bool_constant<detail::unique_ptr_answer(
-                             is_synchronizable_v<T>,
-                             is_synchronizable_v<const D>) &&
-                         detail::is_dynamic_type_known(^^T)> {};
+    : std::bool_constant<detail::pointee_answer(^^T, is_synchronizable_type) &&
+                         is_synchronizable_v<const D>> {};
 
 template <class T>
 struct is_unsafe_synchronizable<const std::shared_ptr<T>>
-    : std::bool_constant<
-          is_synchronizable_v<std::remove_cv_t<std::remove_all_extents_t<T>>> &&
-          detail::is_dynamic_type_known(^^T)> {};
+    : std::bool_constant<detail::pointee_is_synchronizable<T>()> {};
 
 template <class T>
 struct is_unsafe_synchronizable<const std::weak_ptr<T>>
-    : std::bool_constant<
-          is_synchronizable_v<std::remove_cv_t<std::remove_all_extents_t<T>>> &&
-          detail::is_dynamic_type_known(^^T)> {};
+    : std::bool_constant<detail::pointee_is_synchronizable<T>()> {};
 
 template <class T>
 struct is_unsafe_synchronizable<const std::reference_wrapper<T>>
-    : std::bool_constant<is_synchronizable_v<std::remove_cv_t<T>> &&
-                         detail::is_dynamic_type_known(^^T)> {};
+    : std::bool_constant<detail::pointee_is_synchronizable<T>()> {};
 
 } // namespace threadsafe

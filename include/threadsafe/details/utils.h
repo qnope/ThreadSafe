@@ -24,6 +24,11 @@ inline consteval bool is_dynamic_type_known(std::meta::info type) {
   return !is_polymorphic_type(type) || is_final(type);
 }
 
+inline consteval bool pointee_answer(std::meta::info pointee,
+                                     bool (*question)(std::meta::info)) {
+  return question(pointee) && is_dynamic_type_known(pointee);
+}
+
 inline consteval bool has_unreflectable_state(std::meta::info type) {
   const auto context = std::meta::access_context::unchecked();
   return !is_empty_type(type) && !is_polymorphic_type(type) &&

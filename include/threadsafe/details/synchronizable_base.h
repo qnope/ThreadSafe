@@ -54,8 +54,8 @@ inline consteval bool diagnose_is_synchronizable(std::meta::info type) {
     return false;
 
   if (is_pointer_type(type) || is_lvalue_reference_type(type))
-    return is_synchronizable_type(remove_cv(remove_pointer(type))) &&
-           is_dynamic_type_known(remove_pointer(type));
+    return pointee_answer(remove_cv(remove_pointer(type)),
+                          is_synchronizable_type);
 
   if (is_scalar_type(type))
     return true;
@@ -74,8 +74,7 @@ inline consteval bool diagnose_is_synchronizable(std::meta::info type) {
       if (!is_synchronizable_type(member_type))
         return false;
     } else if (is_reference_type(member_type)) {
-      if (!is_synchronizable_type(remove_cvref(member_type)) ||
-          !is_dynamic_type_known(remove_cvref(member_type)))
+      if (!pointee_answer(remove_cvref(member_type), is_synchronizable_type))
         return false;
     } else if (!is_synchronizable_type(add_const(member_type))) {
       return false;
