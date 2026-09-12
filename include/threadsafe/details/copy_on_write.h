@@ -25,7 +25,7 @@ public:
   const T *operator->() const & noexcept { return ptr_.get(); }
 
   T operator*() && noexcept { return *ptr_; }
-  T operator->() && noexcept { return ptr_.get(); }
+  T operator->() && noexcept = delete;
 
   T &as_mutable() &
     requires std::copy_constructible<T>

@@ -154,8 +154,16 @@ static_assert(!is_sendable_v<int *>,
 static_assert(!is_sendable_v<const int *> && !is_sendable_v<const int &>,
               "is_sendable — const behind an indirection is never trusted: "
               "another non-const alias may mutate the referent");
+static_assert(is_sendable_v<const int &&>, "is_sendable rvalue ref");
 static_assert(is_sendable_v<SyncType *>,
               "is_sendable — a pointer to a synchronizable type is sendable");
+static_assert(!is_sendable_v<int *&&>,
+              "is_sendable — moving a pointer only copies it, so an rvalue "
+              "reference to a pointer shares the referent exactly like the "
+              "pointer itself");
+static_assert(is_sendable_v<SyncType *&&>,
+              "is_sendable — an rvalue reference to a pointer follows the "
+              "pointee's sendability, same as SyncType*");
 static_assert(is_sendable_v<std::atomic<int> (*)[4]>,
               "is_sendable — a pointer to an array shares the array, so the "
               "element's synchronizability decides");
