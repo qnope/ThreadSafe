@@ -20,12 +20,12 @@ public:
   value_guard(const value_guard &) = delete;
   value_guard &operator=(const value_guard &) = delete;
 
-  T &operator*() && noexcept =
-      delete ("a temporary guard is destroyed at the semicolon, so it cannot "
-              "hand out a reference");
-  T *operator->() && noexcept =
-      delete ("a temporary guard is destroyed at the semicolon, so it cannot "
-              "hand out a reference");
+  T &operator*() && noexcept = delete (
+      "a temporary guard is destroyed at the semicolon, so it cannot "
+      "hand out a reference");
+  T *operator->() && noexcept = delete (
+      "a temporary guard is destroyed at the semicolon, so it cannot "
+      "hand out a reference");
 
   T &operator*() const & noexcept { return *value_; }
   T *operator->() const & noexcept { return value_; }
@@ -72,10 +72,13 @@ public:
     return std::make_shared<synchronized_value>(std::forward<Args>(args)...);
   }
 
-  [[nodiscard]] guard lock() { return guard{mutex_, value_}; }
-  [[nodiscard]] const_guard lock_shared() const {
+  [[nodiscard]] guard lock() & { return guard{mutex_, value_}; }
+  [[nodiscard]] const_guard lock_shared() const & {
     return const_guard{mutex_, value_};
   }
+
+  [[nodiscard]] guard lock() && = delete;
+  [[nodiscard]] const_guard lock_shared() && = delete;
 
 private:
   mutable mutex mutex_;

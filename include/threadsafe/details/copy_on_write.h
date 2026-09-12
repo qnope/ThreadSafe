@@ -12,32 +12,35 @@
 
 namespace threadsafe {
 
-template <class T>
-class copy_on_write {
+template <class T> class copy_on_write {
 public:
-    template <class... Args>
-        requires std::constructible_from<T, Args...>
-              && (sizeof...(Args) != 1
-                  || (!std::same_as<std::remove_cvref_t<Args>, copy_on_write>
-                      && ...))
-    explicit copy_on_write(Args&&... args)
-        : ptr_(std::make_shared<T>(std::forward<Args>(args)...)) {}
+  template <class... Args>
+    requires std::constructible_from<T, Args...> &&
+             (sizeof...(Args) != 1 ||
+              (!std::same_as<std::remove_cvref_t<Args>, copy_on_write> && ...))
+  explicit copy_on_write(Args &&...args)
+      : ptr_(std::make_shared<T>(std::forward<Args>(args)...)) {}
 
-    const T& operator*() const noexcept { return *ptr_; }
-    const T* operator->() const noexcept { return ptr_.get(); }
+  const T &operator*() const & noexcept { return *ptr_; }
+  const T *operator->() const & noexcept { return ptr_.get(); }
 
-    T& as_mutable()
-        requires std::copy_constructible<T>
-    {
-        if (ptr_.use_count() != 1)
-            ptr_ = std::make_shared<T>(*ptr_);
-        else
-            std::atomic_thread_fence(std::memory_order_acquire);
-        return *ptr_;
-    }
+  T operator*() && noexcept { return *ptr_; }
+  T operator->() && noexcept { return ptr_.get(); }
+
+  T &as_mutable() &
+    requires std::copy_constructible<T>
+  {
+    if (ptr_.use_count() != 1)
+      ptr_ = std::make_shared<T>(*ptr_);
+    else
+      std::atomic_thread_fence(std::memory_order_acquire);
+    return *ptr_;
+  }
+
+  T as_mutable() && { return std::move(as_mutable()); }
 
 private:
-    std::shared_ptr<T> ptr_;
+  std::shared_ptr<T> ptr_;
 };
 
 template <class T>
@@ -48,4 +51,4 @@ template <class T>
 struct is_unsafe_lifetime_aware<copy_on_write<T>>
     : std::bool_constant<is_lifetime_aware_v<T>> {};
 
-}
+} // namespace threadsafe

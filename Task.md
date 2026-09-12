@@ -19,3 +19,4 @@ Audit complet de la bibliothèque
 * Performance au run time
 * API facile à utiliser
 * Flexibilité
+* Ne regarde pas les types standard du style std::chrono, std::latch, barrier mutex, semaphore...

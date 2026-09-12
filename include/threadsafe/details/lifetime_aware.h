@@ -23,9 +23,9 @@ namespace detail {
 consteval bool diagnose_is_lifetime_aware(std::meta::info type);
 }
 
-template <class T> struct is_lifetime_aware {
-  static constexpr bool value = detail::diagnose_is_lifetime_aware(^^T);
-};
+template <class T>
+struct is_lifetime_aware
+    : std::bool_constant<detail::diagnose_is_lifetime_aware(^^T)> {};
 
 template <class T>
 constexpr bool is_lifetime_aware_v =
@@ -56,8 +56,7 @@ inline consteval bool diagnose_is_lifetime_aware(std::meta::info type) {
   if (is_array_type(type))
     return is_lifetime_aware_type(remove_all_extents(type));
 
-  if (extract<bool>(substitute(^^std::ranges::borrowed_range, {
-                                                                  type})))
+  if (trait_value(^^std::ranges::borrowed_range, type))
     return false;
 
   if (is_scalar_type(type))
