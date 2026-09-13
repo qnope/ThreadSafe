@@ -6,20 +6,20 @@
 namespace {
 
 struct PolyBase {
-    virtual ~PolyBase() = default;
+  virtual ~PolyBase() = default;
 };
 struct PolyFinal final : PolyBase {};
 
 struct VouchedPolyBase {
-    virtual ~VouchedPolyBase() = default;
+  virtual ~VouchedPolyBase() = default;
 };
 struct VouchedPolyFinal final : VouchedPolyBase {};
 
 struct HoldsVouchedPolyReference {
-    VouchedPolyBase& referent;
+  VouchedPolyBase &referent;
 };
 struct HoldsVouchedFinalReference {
-    VouchedPolyFinal& referent;
+  VouchedPolyFinal &referent;
 };
 
 } // namespace
@@ -45,48 +45,49 @@ static_assert(is_synchronizable_v<const PolyBase>,
 static_assert(is_lifetime_aware_v<PolyBase>,
               "is_lifetime_aware — a by-value polymorphic object owns what its "
               "static type owns");
-static_assert(is_sendable_v<PolyFinal> && is_synchronizable_v<const PolyFinal>
-                  && is_lifetime_aware_v<PolyFinal>,
+static_assert(is_sendable_v<PolyFinal> &&
+                  is_synchronizable_v<const PolyFinal> &&
+                  is_lifetime_aware_v<PolyFinal>,
               "a final value answers like any other value");
 
 // Lvalue references.
-static_assert(!is_sendable_v<const PolyBase&>,
+static_assert(!is_sendable_v<const PolyBase &>,
               "is_sendable — a const reference may bind to a derived object "
               "with a mutable member a virtual const function mutates");
-static_assert(!is_sendable_v<const PolyFinal&>,
+static_assert(!is_sendable_v<const PolyFinal &>,
               "is_sendable — final settles the dynamic type, but the const is "
               "only a view: another alias may still mutate the referent");
-static_assert(!is_sendable_v<VouchedPolyBase&>,
+static_assert(!is_sendable_v<VouchedPolyBase &>,
               "is_sendable — a vouch names a type; it does not cover the "
               "unknown derived objects a reference may bind to");
-static_assert(is_sendable_v<VouchedPolyFinal&>,
+static_assert(is_sendable_v<VouchedPolyFinal &>,
               "is_sendable — final plus a vouch: the referent is fully known");
-static_assert(!is_lifetime_aware_v<PolyBase&>,
+static_assert(!is_lifetime_aware_v<PolyBase &>,
               "is_lifetime_aware — a reference owns nothing");
-static_assert(!is_synchronizable_v<PolyBase&>,
+static_assert(!is_synchronizable_v<PolyBase &>,
               "is_synchronizable — only const data may be read from several "
               "threads");
 
 // Rvalue references: unlike passing by value, binding does not slice.
-static_assert(!is_sendable_v<PolyBase&&>,
+static_assert(!is_sendable_v<PolyBase &&>,
               "is_sendable — an rvalue reference may still refer to a derived "
               "object whose members the walk cannot see");
-static_assert(is_sendable_v<PolyFinal&&>,
+static_assert(!is_sendable_v<PolyFinal &&>,
               "is_sendable — a final referent is exactly its static type");
 
 // Raw pointers: is_sendable<T*> = is_sendable<T&>.
-static_assert(!is_sendable_v<const PolyBase*>,
+static_assert(!is_sendable_v<const PolyBase *>,
               "is_sendable — a pointer to a polymorphic base may point at an "
               "unknown derived");
-static_assert(!is_sendable_v<const PolyFinal*>,
+static_assert(!is_sendable_v<const PolyFinal *>,
               "is_sendable — final settles the dynamic type, but the const is "
               "only a view: another alias may still mutate the pointee");
-static_assert(!is_synchronizable_v<VouchedPolyBase* const>,
+static_assert(!is_synchronizable_v<VouchedPolyBase *const>,
               "is_synchronizable — the const-read walk may not trust a pointee "
               "whose dynamic type is unknown, vouched or not");
-static_assert(is_synchronizable_v<VouchedPolyFinal* const>,
+static_assert(is_synchronizable_v<VouchedPolyFinal *const>,
               "is_synchronizable — a vouched final pointee is fully known");
-static_assert(!is_lifetime_aware_v<PolyBase*>,
+static_assert(!is_lifetime_aware_v<PolyBase *>,
               "is_lifetime_aware — a pointer owns nothing");
 
 // A reference member seen by the const-read walk.
