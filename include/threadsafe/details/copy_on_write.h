@@ -24,7 +24,8 @@ public:
   const T &operator*() const & noexcept { return *ptr_; }
   const T *operator->() const & noexcept { return ptr_.get(); }
 
-  T operator*() && noexcept { return *ptr_; }
+  // Could be optimized with the same of thing as detach
+  T operator*() && { return *ptr_; }
   T operator->() && noexcept = delete;
 
   T &as_mutable() &
