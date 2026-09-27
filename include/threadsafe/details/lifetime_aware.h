@@ -53,9 +53,6 @@ inline consteval bool diagnose_is_lifetime_aware(std::meta::info type) {
   if (is_reference_type(type) || is_pointer_type(type))
     return false;
 
-  if (is_array_type(type))
-    return is_lifetime_aware_type(remove_all_extents(type));
-
   if (trait_value(^^std::ranges::borrowed_range, type))
     return false;
 

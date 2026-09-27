@@ -10,10 +10,6 @@ namespace {
 
 struct SyncType {};
 
-struct MutableCounters {
-  mutable std::atomic<int> slots[4];
-};
-
 struct EmptyCallable {
   void operator()() const {}
 };
@@ -164,15 +160,9 @@ static_assert(!is_sendable_v<int *&&>,
 static_assert(!is_sendable_v<SyncType *&&>,
               "is_sendable — an rvalue reference to a pointer follows the "
               "pointee's sendability, same as SyncType*");
-static_assert(is_sendable_v<std::atomic<int> (*)[4]>,
-              "is_sendable — a pointer to an array shares the array, so the "
-              "element's synchronizability decides");
 static_assert(!is_sendable_v<int (*)[4]>,
               "is_sendable — a pointer to an array shares the array, so the "
               "element's synchronizability decides");
-static_assert(is_sendable_v<threadsafe::copy_on_write<MutableCounters>>,
-              "is_sendable — a mutable array member is writable through const, "
-              "so the shared read asks the element's full synchronizability");
 static_assert(is_sendable_v<const int>,
               "is_sendable — cv-qualified T forwards to T");
 static_assert(!is_sendable_v<const UserCopyCtor>,

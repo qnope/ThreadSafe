@@ -47,9 +47,6 @@ inline consteval bool diagnose_is_synchronizable(std::meta::info type) {
   if (is_function_type(type))
     return true;
 
-  if (is_array_type(type))
-    return is_synchronizable_type(remove_all_extents(type));
-
   if (!is_const(type))
     return false;
 

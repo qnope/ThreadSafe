@@ -25,20 +25,17 @@ static_assert(is_sendable_v<Plain>);
 static_assert(is_sendable_v<const Plain>);
 static_assert(is_sendable_v<DerivedFromPlain>);
 static_assert(is_sendable_v<std::atomic<int>>);
-static_assert(is_sendable_v<int[3]>);
 
 static_assert(is_synchronizable_v<std::atomic<int>>);
 static_assert(is_synchronizable_v<const Plain>);
 static_assert(is_synchronizable_v<const DerivedFromPlain>);
 static_assert(is_synchronizable_v<std::atomic<int> *const>);
-static_assert(is_synchronizable_v<const Plain[2]>);
 
 static_assert(is_lifetime_aware_v<int>);
 static_assert(is_lifetime_aware_v<Plain>);
 static_assert(is_lifetime_aware_v<std::shared_ptr<int>>);
 static_assert(is_lifetime_aware_v<DerivedFromPlain>);
 static_assert(is_lifetime_aware_v<void (*)()>);
-static_assert(is_lifetime_aware_v<Plain[2]>);
 
 struct Borrowing {
   int *borrowed;
