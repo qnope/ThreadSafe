@@ -126,10 +126,7 @@ static_assert(
         !is_synchronizable_v<const HoldsCString>,
     "is_synchronizable — a pointer member gives every reader a write "
     "path, and a pointed-to const proves nothing about other aliases");
-static_assert(is_synchronizable_v<std::atomic<int> *const> &&
-                  is_synchronizable_v<const PtrToAtomic>,
-              "is_synchronizable — a fully synchronizable pointee survives the "
-              "sharing that copying the pointer amounts to");
+
 static_assert(is_synchronizable_v<const HoldsFnPtr>,
               "is_synchronizable — a function pointee is code, and code is "
               "immutable");

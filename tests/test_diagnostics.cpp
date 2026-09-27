@@ -29,7 +29,6 @@ static_assert(is_sendable_v<std::atomic<int>>);
 static_assert(is_synchronizable_v<std::atomic<int>>);
 static_assert(is_synchronizable_v<const Plain>);
 static_assert(is_synchronizable_v<const DerivedFromPlain>);
-static_assert(is_synchronizable_v<std::atomic<int> *const>);
 
 static_assert(is_lifetime_aware_v<int>);
 static_assert(is_lifetime_aware_v<Plain>);

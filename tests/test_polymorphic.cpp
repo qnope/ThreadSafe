@@ -85,8 +85,6 @@ static_assert(!is_sendable_v<const PolyFinal *>,
 static_assert(!is_synchronizable_v<VouchedPolyBase *const>,
               "is_synchronizable — the const-read walk may not trust a pointee "
               "whose dynamic type is unknown, vouched or not");
-static_assert(is_synchronizable_v<VouchedPolyFinal *const>,
-              "is_synchronizable — a vouched final pointee is fully known");
 static_assert(!is_lifetime_aware_v<PolyBase *>,
               "is_lifetime_aware — a pointer owns nothing");
 

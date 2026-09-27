@@ -44,15 +44,13 @@ inline consteval bool diagnose_is_sendable(std::meta::info type) {
   if (is_unsafe_sendable_type(type))
     return true;
 
-  if (is_reference_type(type))
-    return is_dynamic_type_known(remove_cvref(type)) &&
-           is_synchronizable_type(remove_cvref(type));
-
-  if (is_pointer_type(type))
-    return is_sendable_type(add_lvalue_reference(remove_pointer(type)));
-
   if (is_synchronizable_type(type))
     return true;
+
+  if (is_reference_type(type) || is_pointer_type(type)) {
+    type = remove_cvref(remove_pointer(type));
+    return is_dynamic_type_known(type) && is_synchronizable_type(type);
+  }
 
   if (!is_default_type(type))
     return false;

@@ -47,13 +47,7 @@ inline consteval bool diagnose_is_lifetime_aware(std::meta::info type) {
   if (is_unsafe_lifetime_aware_type(type))
     return true;
 
-  if (is_default_type(type))
-    return true;
-
-  if (is_reference_type(type) || is_pointer_type(type))
-    return false;
-
-  if (trait_value(^^std::ranges::borrowed_range, type))
+  if (!is_default_type(type))
     return false;
 
   return all_bases_and_members(type, is_lifetime_aware_type);
