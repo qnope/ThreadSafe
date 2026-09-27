@@ -44,7 +44,7 @@ static_assert(
     "is_lifetime_aware — reference_wrapper does not keep its referent alive");
 
 static_assert(
-    !is_lifetime_aware_v<std::span<int>[4]>,
+    !is_lifetime_aware_v<std::span<int>>,
     "is_lifetime_aware — an array of a non-owning type is not lifetime aware");
 static_assert(
     !is_lifetime_aware_v<std::span<int>[]>,

@@ -79,7 +79,10 @@ inline consteval bool may_hijack_copy_move(std::meta::info function) {
 inline consteval bool is_default_type(std::meta::info type) {
   const auto context = std::meta::access_context::unchecked();
 
-  if (is_scalar_type(type) && !is_pointer_type(type))
+  if (is_pointer_type(type))
+    return is_function_type(remove_pointer(type));
+
+  if (is_scalar_type(type))
     return true;
 
   if (!is_class_type(type) && !is_union_type(type))
