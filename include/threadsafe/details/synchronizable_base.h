@@ -58,11 +58,11 @@ inline consteval bool diagnose_is_synchronizable(std::meta::info type) {
     return pointee_answer(pointee, is_synchronizable_type);
   }
 
-  if (is_scalar_type(type))
-    return true;
-
-  if (!is_walkable_type(type))
+  if (!is_default_type(type))
     return false;
+
+  if (!is_class_type(type) && !is_union_type(type))
+    return true;
 
   for (auto base : bases_of(type, context))
     if (!is_synchronizable_type(add_const(type_of(base))))

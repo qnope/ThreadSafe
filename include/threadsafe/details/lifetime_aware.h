@@ -59,10 +59,7 @@ inline consteval bool diagnose_is_lifetime_aware(std::meta::info type) {
   if (trait_value(^^std::ranges::borrowed_range, type))
     return false;
 
-  if (is_scalar_type(type))
-    return true;
-
-  if (!is_walkable_type(type))
+  if (!is_default_type(type))
     return false;
 
   return all_bases_and_members(type, is_lifetime_aware_type);

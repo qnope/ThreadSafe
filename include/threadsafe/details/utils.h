@@ -40,6 +40,9 @@ inline consteval bool all_bases_and_members(std::meta::info type,
                                             bool (*question)(std::meta::info)) {
   const auto context = std::meta::access_context::unchecked();
 
+  if (!is_class_type(type) && !is_union_type(type))
+    return true;
+
   for (auto base : bases_of(type, context))
     if (!question(type_of(base)))
       return false;
@@ -76,6 +79,15 @@ inline consteval bool may_hijack_copy_move(std::meta::info function) {
 inline consteval bool is_default_type(std::meta::info type) {
   const auto context = std::meta::access_context::unchecked();
 
+  if (is_scalar_type(type) && !is_pointer_type(type))
+    return true;
+
+  if (!is_class_type(type) && !is_union_type(type))
+    return false;
+
+  if (has_unreflectable_state(type))
+    return false;
+
   for (auto member : std::meta::members_of(type, context)) {
     if (may_hijack_copy_move(member))
       return false;
@@ -86,19 +98,6 @@ inline consteval bool is_default_type(std::meta::info type) {
   }
 
   return true;
-}
-
-inline consteval bool is_walkable_type(std::meta::info type) {
-  if (!is_class_type(type) && !is_union_type(type))
-    return false;
-
-  if (!is_complete_type(type))
-    return false;
-
-  if (!is_default_type(type))
-    return false;
-
-  return !has_unreflectable_state(type);
 }
 
 } // namespace threadsafe::detail

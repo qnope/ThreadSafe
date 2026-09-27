@@ -54,10 +54,10 @@ inline consteval bool diagnose_is_sendable(std::meta::info type) {
   if (is_array_type(type))
     return is_sendable_type(remove_all_extents(type));
 
-  if (is_scalar_type(type) || is_synchronizable_type(type))
+  if (is_synchronizable_type(type))
     return true;
 
-  if (!is_walkable_type(type))
+  if (!is_default_type(type))
     return false;
 
   return all_bases_and_members(type, is_sendable_type);
