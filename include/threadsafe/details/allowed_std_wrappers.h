@@ -26,7 +26,7 @@ namespace threadsafe {
 
 namespace detail {
 
-inline constexpr std::meta::info allowed_std_wrappers[] = {
+inline constexpr std::array allowed_std_wrappers = {
     ^^std::vector,
     ^^std::deque,
     ^^std::list,

@@ -96,3 +96,31 @@ struct is_unsafe_synchronizable<const std::reference_wrapper<T>>
     : std::bool_constant<detail::pointee_is_synchronizable<T>()> {};
 
 } // namespace threadsafe
+
+
+struct trait_answer {
+  const char* reason = nullptr;  // nullptr means yes
+  std::span<const char* const> path = {};  // outer.middle_.inner_.borrowed
+ 
+  constexpr explicit operator bool() const { return reason == nullptr; }
+ 
+  consteval trait_answer prepend(std::meta::info step) const {
+    if (!reason) return *this;
+
+    // middle_
+    const char* current_step = std::define_static_string(identifier_of(step));
+    std::deque steps(path.begin(), path.end()); // [inner_, borrowed]
+
+    // [middle_, inner_, borrowed]
+    steps.push_front(current_step);
+    return {reason, std::define_static_array(steps)};  // promoted
+  }
+ 
+  consteval const char* message() const {
+    std::string text;
+    for (const char* step : path)
+      text += (text.empty() ? "" : ".") + std::string{step};
+    return std::define_static_string(text + ": " + reason);
+  }
+};
+

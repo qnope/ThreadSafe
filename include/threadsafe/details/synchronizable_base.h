@@ -66,8 +66,9 @@ inline consteval bool diagnose_is_synchronizable(std::meta::info type) {
     if (is_mutable_member(member)) {
       if (!is_synchronizable_type(member_type))
         return false;
-    } else if (is_reference_type(member_type)) {
-      if (!pointee_answer(remove_cvref(member_type), is_synchronizable_type))
+    } else if (is_reference_type(member_type) || is_pointer_type(member_type)) {
+      if (!pointee_answer(remove_cvref(remove_pointer(member_type)),
+                          is_synchronizable_type))
         return false;
     } else if (!is_synchronizable_type(add_const(member_type))) {
       return false;
